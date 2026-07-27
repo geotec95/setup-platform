@@ -1,0 +1,15 @@
+# config/categories.yaml — categorias reconhecidas pelo menu (core/menu.sh lê os manifests
+# em config/tools/*.yaml e agrupa por este campo `category`)
+categories:
+  - id: automacao
+    label: "Automação e Workflows"
+  - id: monitoramento_aws
+    label: "Monitoramento AWS / FinOps"
+  - id: observabilidade
+    label: "Observabilidade de Aplicações"
+  - id: dashboard
+    label: "Dashboards para Clientes"
+  - id: banco_de_dados
+    label: "Bancos de Dados"
+  - id: infraestrutura
+    label: "Infraestrutura (proxy, storage, etc)"

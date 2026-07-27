@@ -1,0 +1,38 @@
+# templates/observability/loki-config.yml
+# Config do Loki (armazenamento local em filesystem — adequado para o
+# volume de logs de um único servidor de cliente). Copiada para
+# /data/observability/config/loki/loki-config.yml pelo install.sh.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # Retenção padrão de 30 dias — ajustar conforme necessidade/contrato do cliente.
+  retention_period: 720h
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem

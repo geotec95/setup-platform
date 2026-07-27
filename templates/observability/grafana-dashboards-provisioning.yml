@@ -1,0 +1,20 @@
+# templates/observability/grafana-dashboards-provisioning.yml
+# Provider de dashboards do Grafana: carrega automaticamente todo JSON de
+# dashboard colocado na pasta /etc/grafana/provisioning/dashboards/json
+# dentro do container (mapeada a partir de
+# /data/observability/config/grafana/dashboards no host). Novos dashboards
+# podem ser adicionados apenas colocando o .json nessa pasta, sem reiniciar
+# o Grafana (updateIntervalSeconds cuida do refresh).
+apiVersion: 1
+
+providers:
+  - name: docker-overview
+    orgId: 1
+    folder: "Observabilidade"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false

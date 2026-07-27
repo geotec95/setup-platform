@@ -1,0 +1,42 @@
+name: "Observabilidade"
+slug: observability
+category: observabilidade
+description: >-
+  Stack de observabilidade das APLICAÇÕES Docker rodando no servidor do cliente:
+  métricas de containers e host (Prometheus + node-exporter + cAdvisor), logs
+  centralizados (Loki + Promtail) e visualização (Grafana). Este módulo NÃO é o
+  monitoramento da conta AWS/FinOps (ver módulo aws-monitor) — aqui o foco é
+  CPU/memória/disco/logs das aplicações e do host onde elas rodam. Tracing
+  distribuído (ex.: Tempo) fica para uma iteração futura.
+requires:
+  - docker
+  - reverse_proxy
+ports:
+  - "3000"  # Grafana — único serviço exposto publicamente, via Traefik/HTTPS
+  - "9090"  # Prometheus — uso somente interno (rede overlay), NUNCA publicado no host
+  - "3100"  # Loki — uso somente interno, NUNCA publicado no host
+  - "8080"  # cAdvisor — uso somente interno
+  - "9100"  # node-exporter — uso somente interno
+# Decisão de segurança: Prometheus, Loki, cAdvisor e node-exporter não têm
+# autenticação nativa e expõem dados sensíveis (nomes/labels de containers,
+# topologia interna, métricas de host). Por isso NÃO recebem `ports:`
+# publicados no host nem labels do Traefik — ficam acessíveis apenas dentro
+# da rede overlay 'rede_publica' do Swarm, consumidos internamente pelo
+# Grafana. Só o Grafana (que tem login/senha próprios) é exposto via Traefik
+# com HTTPS/Let's Encrypt, seguindo o mesmo padrão do módulo n8n.
+domains:
+  - "grafana.SEUDOMINIO.com.br"
+env_required:
+  - DOMAIN
+  - GRAFANA_ADMIN_PASSWORD
+  - TZ
+volumes:
+  - /data/observability/prometheus
+  - /data/observability/grafana
+  - /data/observability/loki
+install_strategy: docker_compose
+healthcheck:
+  type: http
+  url: "http://localhost:3000/api/health"
+validate_command: "docker ps --format '{{.Names}}' | grep -q '^observability_grafana'"
+uninstall_strategy: docker_compose_down

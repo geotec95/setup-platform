@@ -1,0 +1,77 @@
+version: "3.8"
+
+# Agente leve pra instalar em EC2 de clientes (qualquer conta AWS). Não expõe
+# nada publicamente — só coleta métricas/logs locais e empurra (push) pro
+# módulo observability central via HTTPS + Basic Auth. Ver
+# config/tools/remote-agent.yaml para o racional completo.
+
+services:
+  prometheus-agent:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--agent"
+      - "--storage.agent.path=/prometheus-agent"
+    volumes:
+      - /data/remote-agent/config/prometheus-agent.yml:/etc/prometheus/prometheus.yml:ro
+      - /data/remote-agent/prometheus-agent:/prometheus-agent
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  promtail:
+    image: grafana/promtail:latest
+    command:
+      - "-config.file=/etc/promtail/promtail-config.yml"
+    volumes:
+      - /data/remote-agent/config/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    cap_add:
+      - SYS_ADMIN
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  rede_publica:
+    external: true

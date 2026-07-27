@@ -1,0 +1,9 @@
+.env
+*/.env
+**/*.env
+!templates/env/*.env.example
+logs/
+backups/
+*.log
+.DS_Store
+.claude/scheduled_tasks.lock

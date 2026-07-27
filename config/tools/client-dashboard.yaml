@@ -1,0 +1,41 @@
+name: "Dashboard Premium por Cliente"
+slug: client-dashboard
+category: dashboard
+description: >-
+  Provisionamento rápido de um dashboard "premium" (com a marca de cada cliente:
+  logo, cor, domínio próprio) reutilizando UMA ÚNICA stack de observabilidade
+  compartilhada (módulo observability: Prometheus+Grafana+Loki), em vez de subir
+  um Grafana inteiro por cliente. Grafana OSS não tem White-Label/branding por
+  organização (isso é recurso pago do Grafana Enterprise), então a arquitetura
+  usada aqui é: (1) uma Organization separada no Grafana compartilhado por
+  cliente, para isolar dados/dashboards/permissões via Grafana Orgs API; (2) um
+  wrapper estático (HTML/CSS puro, sem build step) com a marca do cliente que
+  embute os painéis do Grafana via iframe (public dashboards / snapshot de
+  viewer); (3) esse wrapper roda como um serviço nginx:alpine próprio, atrás do
+  Traefik, em um subdomínio exclusivo do cliente (ex: dashboard.clientex.com.br)
+  com HTTPS automático via Let's Encrypt. O provisionamento por cliente é feito
+  com modules/client-dashboard/new-client.sh (replicável, idempotente) — este
+  módulo NÃO tem instalação "por si só" além de garantir os pré-requisitos.
+requires:
+  - docker
+  - reverse_proxy
+  - observability
+ports: []
+domains:
+  - "dashboard.CLIENTE.SEUDOMINIO.com.br"
+env_required:
+  - CLIENT_NAME
+  - CLIENT_DOMAIN
+  - CLIENT_LOGO_URL
+  - CLIENT_PRIMARY_COLOR
+  - GRAFANA_BASE_URL
+  - GRAFANA_ADMIN_USER
+  - GRAFANA_ADMIN_PASSWORD
+volumes:
+  - /data/client-dashboard
+install_strategy: script
+healthcheck:
+  type: script
+  script: "modules/client-dashboard/validate.sh"
+validate_command: "test -x modules/client-dashboard/validate.sh && modules/client-dashboard/validate.sh"
+uninstall_strategy: script

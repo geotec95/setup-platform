@@ -1,0 +1,176 @@
+{
+  "name": "AWS FinOps Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "1a2b3c4d-0001-4a11-9a11-000000000001",
+      "name": "Schedule Trigger (toda segunda 08:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-780, 300],
+      "notes": "Dispara semanalmente. Ajuste o cron conforme a necessidade (ex: diário para custo, semanal para report completo)."
+    },
+    {
+      "parameters": {
+        "command": "=/data/aws-monitor/bin/cost-report.sh"
+      },
+      "id": "1a2b3c4d-0002-4a11-9a11-000000000002",
+      "name": "Executar cost-report.sh",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [-560, 200],
+      "notes": "Roda localmente no host do n8n via 'Execute Command'. Se o n8n estiver em outro host que não a EC2 monitorada, troque por um node SSH apontando para a instância (mesma AWS CLI/credenciais)."
+    },
+    {
+      "parameters": {
+        "command": "=/data/aws-monitor/bin/security-report.sh"
+      },
+      "id": "1a2b3c4d-0003-4a11-9a11-000000000003",
+      "name": "Executar security-report.sh",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [-560, 420],
+      "notes": "Idem: SOMENTE LEITURA, seguro para rodar sem revisão manual prévia."
+    },
+    {
+      "parameters": {
+        "command": "=cat /data/aws-monitor/reports/$(date -u +%Y-%m-%d)/cost-report.json"
+      },
+      "id": "1a2b3c4d-0004-4a11-9a11-000000000004",
+      "name": "Ler cost-report.json",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [-340, 200]
+    },
+    {
+      "parameters": {
+        "command": "=cat /data/aws-monitor/reports/$(date -u +%Y-%m-%d)/security-report.json"
+      },
+      "id": "1a2b3c4d-0005-4a11-9a11-000000000005",
+      "name": "Ler security-report.json",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [-340, 420]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0006-4a11-9a11-000000000006",
+      "name": "Combinar Custo + Segurança",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [-120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formata os dois JSONs (cost-report + security-report) em um HTML de e-mail.\n// Comentários em português conforme padrão do projeto setup-platform.\nconst costRaw = $input.all()[0].json.stdout;\nconst secRaw = $input.all()[1] ? $input.all()[1].json.stdout : '{}';\n\nlet cost, sec;\ntry { cost = JSON.parse(costRaw); } catch (e) { cost = {}; }\ntry { sec = JSON.parse(secRaw); } catch (e) { sec = {}; }\n\nconst fmtUsd = (v) => `US$ ${Number(v || 0).toFixed(2)}`;\n\nconst topServicesRows = (cost.cost?.topServices || [])\n  .map(s => `<tr><td>${s.service}</td><td>${fmtUsd(s.cost)}</td></tr>`)\n  .join('');\n\nconst openSgRows = (sec.openSecurityGroups || [])\n  .map(s => `<li>${s.groupId} (${s.groupName}) porta ${s.fromPort}-${s.toPort}/${s.protocol} &lt;- ${s.cidr}</li>`)\n  .join('') || '<li>nenhum encontrado</li>';\n\nconst idleEipRows = (cost.idleResources?.unassociatedElasticIps || [])\n  .map(e => `<li>${e.publicIp}</li>`).join('') || '<li>nenhum</li>';\n\nconst html = `\n<h2>Relatório Semanal AWS FinOps &amp; Segurança</h2>\n<p>Gerado em: ${cost.generatedAt || new Date().toISOString()}</p>\n<h3>Custos</h3>\n<ul>\n  <li>Últimos 7 dias: ${fmtUsd(cost.cost?.last7Days?.total)} (variação: ${cost.cost?.last7Days?.variationPct ?? 'N/A'}%)</li>\n  <li>Últimos 30 dias: ${fmtUsd(cost.cost?.last30Days?.total)} (variação: ${cost.cost?.last30Days?.variationPct ?? 'N/A'}%)</li>\n</ul>\n<h4>Top serviços (30 dias)</h4>\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\"><tr><th>Serviço</th><th>Custo</th></tr>${topServicesRows}</table>\n<h4>Recursos ociosos — Elastic IPs não associados</h4>\n<ul>${idleEipRows}</ul>\n<h3>Segurança</h3>\n<h4>Security Groups expostos (0.0.0.0/0) em portas sensíveis</h4>\n<ul>${openSgRows}</ul>\n<p>Usuários sem MFA: ${(sec.usersWithoutMfa || []).length} | Access keys antigas: ${(sec.oldAccessKeys || []).length} | Buckets S3 públicos: ${(sec.publicS3Buckets || []).length}</p>\n<hr/>\n<p style=\"font-size:12px;color:#888\">Relatório gerado automaticamente pelo AWS Monitor / FinOps Agent (setup-platform). Somente leitura, nenhuma ação foi executada na conta.</p>\n`;\n\nconst slackSummary = `*Relatório AWS FinOps (semanal)*\\n` +\n  `Custo 7d: ${fmtUsd(cost.cost?.last7Days?.total)} (${cost.cost?.last7Days?.variationPct ?? 'N/A'}%)\\n` +\n  `Custo 30d: ${fmtUsd(cost.cost?.last30Days?.total)} (${cost.cost?.last30Days?.variationPct ?? 'N/A'}%)\\n` +\n  `SGs expostos: ${(sec.openSecurityGroups || []).length} | Sem MFA: ${(sec.usersWithoutMfa || []).length} | Buckets públicos: ${(sec.publicS3Buckets || []).length}`;\n\nreturn [{ json: { html, slackSummary } }];\n"
+      },
+      "id": "1a2b3c4d-0007-4a11-9a11-000000000007",
+      "name": "Formatar Report (HTML + resumo Slack)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "notes": "Node de código: transforma os dois JSONs em HTML de e-mail e um resumo curto para o Slack."
+    },
+    {
+      "parameters": {
+        "fromEmail": "aws-monitor@SEUDOMINIO.com.br",
+        "toEmail": "={{ $env.REPORT_EMAIL_TO }}",
+        "subject": "=Relatório AWS FinOps & Segurança — {{ $now.format('yyyy-LL-dd') }}",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0008-4a11-9a11-000000000008",
+      "name": "Enviar E-mail",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [340, 200],
+      "credentials": {
+        "smtp": {
+          "id": "PLACEHOLDER_SMTP_CREDENTIAL_ID",
+          "name": "SMTP (configure em Credentials no n8n)"
+        }
+      },
+      "notes": "Configure a credential SMTP no n8n (Settings -> Credentials -> SMTP). REPORT_EMAIL_TO vem do .env do módulo (variável de ambiente do processo n8n)."
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "webhookUri": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "text": "={{ $json.slackSummary }}",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0009-4a11-9a11-000000000009",
+      "name": "Enviar Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [340, 420],
+      "credentials": {
+        "slackApi": {
+          "id": "PLACEHOLDER_SLACK_CREDENTIAL_ID",
+          "name": "Slack Webhook (configure em Credentials no n8n)"
+        }
+      },
+      "notes": "Alternativa simples: trocar por um node HTTP Request fazendo POST para SLACK_WEBHOOK_URL diretamente, sem precisar de credential Slack API completa."
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (toda segunda 08:00)": {
+      "main": [
+        [
+          { "node": "Executar cost-report.sh", "type": "main", "index": 0 },
+          { "node": "Executar security-report.sh", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Executar cost-report.sh": {
+      "main": [[{ "node": "Ler cost-report.json", "type": "main", "index": 0 }]]
+    },
+    "Executar security-report.sh": {
+      "main": [[{ "node": "Ler security-report.json", "type": "main", "index": 0 }]]
+    },
+    "Ler cost-report.json": {
+      "main": [[{ "node": "Combinar Custo + Segurança", "type": "main", "index": 0 }]]
+    },
+    "Ler security-report.json": {
+      "main": [[{ "node": "Combinar Custo + Segurança", "type": "main", "index": 1 }]]
+    },
+    "Combinar Custo + Segurança": {
+      "main": [[{ "node": "Formatar Report (HTML + resumo Slack)", "type": "main", "index": 0 }]]
+    },
+    "Formatar Report (HTML + resumo Slack)": {
+      "main": [
+        [
+          { "node": "Enviar E-mail", "type": "main", "index": 0 },
+          { "node": "Enviar Slack", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Workflow do AWS Monitor / FinOps Agent (setup-platform). Roda cost-report.sh e security-report.sh via Execute Command, formata em HTML e envia por E-mail/Slack. Placeholders de credential precisam ser configurados manualmente após o import (Settings -> Credentials)."
+  },
+  "tags": [
+    { "name": "aws-monitor" },
+    { "name": "finops" }
+  ]
+}

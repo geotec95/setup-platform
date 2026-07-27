@@ -1,0 +1,26 @@
+name: "AWS Monitor / FinOps Agent"
+slug: aws-monitor
+category: monitoramento_aws
+description: >-
+  Agente de monitoramento de custos (FinOps) e postura de segurança da conta AWS.
+  Roda 100% sobre serviços nativos AWS (Cost Explorer, EC2, IAM, S3, CloudWatch,
+  opcionalmente Security Hub/Trusted Advisor) via AWS CLI, orquestrado por workflows
+  N8N que enviam reports periódicos por e-mail/Slack/WhatsApp. Não expõe painel web
+  próprio — é um módulo headless que se integra ao n8n já instalado.
+requires:
+  - docker
+  - n8n
+  - awscli
+ports: []
+domains: []
+env_required:
+  - AWS_REGION
+  - REPORT_EMAIL_TO
+volumes:
+  - /data/aws-monitor
+install_strategy: script
+healthcheck:
+  type: script
+  script: "providers/aws/cost-report.sh --dry-run"
+validate_command: "test -x modules/aws-monitor/validate.sh && modules/aws-monitor/validate.sh"
+uninstall_strategy: script

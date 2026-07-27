@@ -1,0 +1,142 @@
+{
+  "_comment": [
+    "Política de MENOR PRIVILÉGIO para o AWS Monitor / FinOps Agent.",
+    "ANEXAR SEMPRE via IAM Role + Instance Profile na instância EC2 que roda o setup-platform.",
+    "NUNCA gerar Access Key/Secret Key para esta política e colar em .env ou código.",
+    "Se precisar rodar fora da EC2 (ex: máquina local/CI), use AWS SSO ou leia credenciais",
+    "temporárias de AWS Secrets Manager / SSM Parameter Store em runtime — nunca em disco.",
+    "",
+    "Como anexar (uma vez, via console ou CLI administrativa):",
+    "  aws iam create-policy --policy-name AwsMonitorFinOpsAgent --policy-document file://iam-policy-aws-monitor.json",
+    "  aws iam create-role --role-name AwsMonitorFinOpsAgentRole --assume-role-policy-document '{...trust policy EC2...}'",
+    "  aws iam attach-role-policy --role-name AwsMonitorFinOpsAgentRole --policy-arn <ARN da policy>",
+    "  aws iam create-instance-profile --instance-profile-name AwsMonitorFinOpsAgentProfile",
+    "  aws iam add-role-to-instance-profile --instance-profile-name AwsMonitorFinOpsAgentProfile --role-name AwsMonitorFinOpsAgentRole",
+    "  aws ec2 associate-iam-instance-profile --instance-id <id> --iam-instance-profile Name=AwsMonitorFinOpsAgentProfile"
+  ],
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CostExplorerReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast",
+        "ce:GetDimensionValues",
+        "ce:GetTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BudgetsReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ViewBudget",
+        "budgets:DescribeBudgetAction*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Ec2DescribeReadOnly",
+      "Comment": "Necessário para custo (recursos ociosos) e segurança (Security Groups)",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeAddresses",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeInstances",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamReadOnlyForSecurityChecks",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListUsers",
+        "iam:ListAccessKeys",
+        "iam:GetAccessKeyLastUsed",
+        "iam:ListMFADevices",
+        "iam:GetAccountSummary"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3ReadOnlyForPublicBucketCheck",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetBucketAcl",
+        "s3:GetBucketPublicAccessBlock"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3BackupWrite",
+      "Comment": "Escopo restrito ao bucket de backup do módulo (definido em S3_BACKUP_BUCKET). Ajuste o Resource para o ARN real do bucket antes de aplicar em produção.",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::SEU-BUCKET-DE-BACKUP",
+        "arn:aws:s3:::SEU-BUCKET-DE-BACKUP/*"
+      ]
+    },
+    {
+      "Sid": "SecurityHubOptional",
+      "Comment": "Condicional: só é exercida se Security Hub estiver habilitado na conta; caso contrário a chamada falha e o script faz fallback gracioso.",
+      "Effect": "Allow",
+      "Action": [
+        "securityhub:GetFindings",
+        "securityhub:DescribeHub"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TrustedAdvisorOptional",
+      "Comment": "Condicional: requer plano de suporte Business/Enterprise. Em Basic/Developer a chamada retorna SubscriptionRequiredException, tratada como indisponível pelo script.",
+      "Effect": "Allow",
+      "Action": [
+        "support:DescribeTrustedAdvisorChecks",
+        "support:DescribeTrustedAdvisorCheckResult",
+        "support:DescribeTrustedAdvisorCheckSummaries"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Route53OptionalDnsSync",
+      "Comment": "Só necessário se ROUTE53_ZONE_ID estiver configurado (sincronização de IP dinâmico).",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets",
+        "route53:GetHostedZone"
+      ],
+      "Resource": "arn:aws:route53:::hostedzone/*"
+    },
+    {
+      "Sid": "CloudWatchLogsAndMetrics",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DescribeLogGroups",
+        "cloudwatch:PutMetricData",
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DescribeAlarms"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "StsIdentityForHealthcheck",
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    }
+  ]
+}

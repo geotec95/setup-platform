@@ -1,0 +1,29 @@
+name: "Agente Remoto de Observabilidade"
+slug: remote-agent
+category: observabilidade
+description: >-
+  Agente leve (node-exporter + cAdvisor + Promtail + Prometheus em modo
+  "agent") para instalar em EC2 de CLIENTES — inclusive em contas AWS
+  diferentes da conta onde roda o módulo `observability` central. Não expõe
+  painel próprio nem precisa de proxy reverso/domínio: só coleta métricas e
+  logs locais e empurra tudo (via HTTPS + Basic Auth) para os endpoints de
+  ingestão do `observability` central (Prometheus remote_write + Loki push).
+  Cada instalação recebe um label `client` fixo, que separa os dados de cada
+  cliente dentro do mesmo Grafana/Prometheus/Loki central.
+requires:
+  - docker
+ports: []
+domains: []
+env_required:
+  - CENTRAL_INGEST_DOMAIN
+  - INGEST_USER
+  - INGEST_PASSWORD
+  - CLIENT_LABEL
+volumes:
+  - /data/remote-agent
+install_strategy: docker_compose
+healthcheck:
+  type: script
+  script: "docker ps --format '{{.Names}}' | grep -q '^remote-agent_prometheus-agent'"
+validate_command: "test -x modules/remote-agent/validate.sh && modules/remote-agent/validate.sh"
+uninstall_strategy: docker_compose_down

@@ -1,0 +1,25 @@
+name: "Uptime Kuma"
+slug: uptime-kuma
+category: observabilidade
+description: >-
+  Monitoramento de uptime/status de sites, APIs e serviços (HTTP(s), TCP, DNS,
+  ping, etc), com painel próprio, histórico e notificações. Complementa o
+  módulo observability (que foca em métricas/logs internos dos containers) —
+  aqui o foco é disponibilidade vista de fora, como um cliente enxergaria.
+requires:
+  - docker
+  - reverse_proxy
+ports:
+  - "3001"
+domains:
+  - "status.SEUDOMINIO.com.br"
+env_required:
+  - DOMAIN
+volumes:
+  - /data/uptime-kuma
+install_strategy: docker_compose
+healthcheck:
+  type: http
+  url: "http://localhost:3001/"
+validate_command: "docker ps --format '{{.Names}}' | grep -q '^uptime-kuma_uptime-kuma'"
+uninstall_strategy: docker_compose_down

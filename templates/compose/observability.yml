@@ -1,0 +1,163 @@
+version: "3.8"
+
+# Stack de observabilidade das aplicações (Docker Swarm). Segue o mesmo padrão
+# do templates/compose/n8n.yml: deploy via `docker stack deploy`, dados em
+# /data/<tool>, HTTPS automático via Traefik apenas para o serviço com painel
+# web público (Grafana). Prometheus/Loki/cAdvisor/node-exporter ficam
+# acessíveis SOMENTE dentro da rede overlay 'rede_publica' — sem `ports:`
+# publicados no host e sem labels do Traefik (ver decisão de segurança em
+# config/tools/observability.yaml).
+#
+# EXTENSÃO FUTURA: um serviço `tempo` (tracing distribuído) pode ser
+# adicionado aqui futuramente, seguindo o mesmo modelo do Loki (uso interno
+# apenas + datasource adicional no grafana-datasources.yml).
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      # Habilita o endpoint /api/v1/write — é isto que permite agentes
+      # remotos (EC2 de clientes, outras contas AWS) empurrarem métricas
+      # pra cá via remote_write, em vez do Prometheus precisar alcançá-los.
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - /data/observability/config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /data/observability/prometheus:/prometheus
+    networks:
+      - rede_publica
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        # Endpoint de ingestão de métricas (remote_write), autenticado por
+        # Basic Auth — usado só por agentes remotos, nunca navegador.
+        - "traefik.http.routers.observability-ingest-metrics.rule=Host(`${INGEST_DOMAIN}`) && PathPrefix(`/api/v1/write`)"
+        - "traefik.http.routers.observability-ingest-metrics.entrypoints=websecure"
+        - "traefik.http.routers.observability-ingest-metrics.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.observability-ingest-metrics.middlewares=observability-ingest-auth"
+        - "traefik.http.services.observability-ingest-metrics.loadbalancer.server.port=9090"
+        # Middleware de Basic Auth compartilhado (referenciado também pelo
+        # router de ingestão de logs, no serviço loki abaixo).
+        - "traefik.http.middlewares.observability-ingest-auth.basicauth.users=${INGEST_HTPASSWD_ENTRY}"
+      placement:
+        constraints:
+          - node.role == manager
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SERVER_ROOT_URL=https://${DOMAIN}/
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - TZ=${TZ}
+    volumes:
+      - /data/observability/grafana:/var/lib/grafana
+      - /data/observability/config/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - /data/observability/config/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - rede_publica
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.observability-grafana.rule=Host(`${DOMAIN}`)"
+        - "traefik.http.routers.observability-grafana.entrypoints=websecure"
+        - "traefik.http.routers.observability-grafana.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.observability-grafana.loadbalancer.server.port=3000"
+      placement:
+        constraints:
+          - node.role == manager
+
+  loki:
+    image: grafana/loki:latest
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    volumes:
+      - /data/observability/config/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - /data/observability/loki:/loki
+    networks:
+      - rede_publica
+    # Sem healthcheck: a imagem grafana/loki não inclui wget/curl no PATH.
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        # Endpoint de push de logs, autenticado por Basic Auth (mesmo
+        # middleware definido no serviço prometheus acima).
+        - "traefik.http.routers.observability-ingest-logs.rule=Host(`${INGEST_DOMAIN}`) && PathPrefix(`/loki/api/v1/push`)"
+        - "traefik.http.routers.observability-ingest-logs.entrypoints=websecure"
+        - "traefik.http.routers.observability-ingest-logs.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.observability-ingest-logs.middlewares=observability-ingest-auth"
+        - "traefik.http.services.observability-ingest-logs.loadbalancer.server.port=3100"
+      placement:
+        constraints:
+          - node.role == manager
+
+  promtail:
+    image: grafana/promtail:latest
+    command:
+      - "-config.file=/etc/promtail/promtail-config.yml"
+    volumes:
+      - /data/observability/config/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      # Leitura read-only dos logs JSON gravados pelo Docker no host
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Socket read-only, usado só para descoberta de metadados dos containers (docker_sd_configs)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    # cap_add no lugar de `privileged` (não suportado por serviços Swarm via
+    # docker stack deploy); suficiente para leitura de métricas de cgroups.
+    cap_add:
+      - SYS_ADMIN
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  rede_publica:
+    external: true

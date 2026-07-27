@@ -1,0 +1,24 @@
+name: n8n
+slug: n8n
+category: automacao
+description: "Automação de workflows — orquestra os agentes de monitoramento AWS, observabilidade e envio de reports"
+requires:
+  - docker
+  - reverse_proxy
+ports:
+  - "5678"
+domains:
+  - "n8n.SEUDOMINIO.com.br"
+env_required:
+  - N8N_HOST
+  - N8N_PROTOCOL
+  - N8N_EDITOR_BASE_URL
+  - N8N_ENCRYPTION_KEY
+volumes:
+  - /data/n8n
+install_strategy: docker_compose
+healthcheck:
+  type: http
+  url: "http://localhost:5678/healthz"
+validate_command: "docker ps --format '{{.Names}}' | grep -q '^n8n_n8n'"
+uninstall_strategy: docker_compose_down

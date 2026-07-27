@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:v3.7
+    command:
+      - "--configfile=/etc/traefik/traefik.yml"
+    environment:
+      - "DOCKER_API_VERSION=1.41"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../../config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - traefik_certificates:/etc/traefik/letsencrypt
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  traefik_certificates:
+    external: true
+
+networks:
+  rede_publica:
+    external: true
