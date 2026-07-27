@@ -22,16 +22,29 @@ fi
 sp::docker::install
 sp::proxy::ensure_traefik
 
+# Reaproveita N8N_ENCRYPTION_KEY existente em updates — o n8n persiste a chave em
+# /home/node/.n8n/config no primeiro boot; gerar uma nova a cada update quebra o
+# container com "Mismatching encryption keys" (crash loop). Precisa rodar ANTES
+# de perguntar o domínio (senão o DOMAIN recém-digitado seria sobrescrito pelo
+# valor antigo salvo no .env — mesmo bug já corrigido em modules/observability).
+ENV_FILE="${SP_ROOT}/modules/${SLUG}/.env"
+if $UPDATE && [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY:-$(sp::gen_password 32)}"
+
 DOMAIN="$(sp::proxy::ask_domain "$SLUG")"
 DATA_DIR="$(sp::ensure_data_dir "$SLUG")"
+chmod 700 "$DATA_DIR"
 chown -R 1000:1000 "$DATA_DIR"  # imagem n8nio/n8n roda como usuário "node" (UID 1000)
 
-ENV_FILE="${SP_ROOT}/modules/${SLUG}/.env"
 {
   echo "DOMAIN=${DOMAIN}"
   echo "TZ=America/Sao_Paulo"
-  echo "N8N_ENCRYPTION_KEY=$(sp::gen_password 32)"
+  echo "N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}"
 } > "$ENV_FILE"
+chmod 600 "$ENV_FILE"
 
 sp::docker::ensure_network rede_publica
 # shellcheck disable=SC1090

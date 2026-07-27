@@ -40,7 +40,7 @@ chown -R 65534:65534 "${DATA_DIR}"  # prom/prometheus (agent mode) roda como "no
 CONF_DIR="${SP_DATA_ROOT}/${SLUG}/config"
 mkdir -p "${CONF_DIR}" "${SP_DATA_ROOT}/${SLUG}/prometheus-agent"
 chown -R 65534:65534 "${SP_DATA_ROOT}/${SLUG}/prometheus-agent"
-chmod -R a+rX "$CONF_DIR"
+chmod 700 "$CONF_DIR"
 
 sed -e "s|{{CENTRAL_INGEST_DOMAIN}}|${CENTRAL_INGEST_DOMAIN}|g" \
     -e "s|{{INGEST_USER}}|${INGEST_USER}|g" \
@@ -53,6 +53,14 @@ sed -e "s|{{CENTRAL_INGEST_DOMAIN}}|${CENTRAL_INGEST_DOMAIN}|g" \
     -e "s|{{INGEST_PASSWORD}}|${INGEST_PASSWORD}|g" \
     -e "s|{{CLIENT_LABEL}}|${CLIENT_LABEL}|g" \
     "${SP_TEMPLATES_DIR}/remote-agent/promtail-config.yml.tpl" > "${CONF_DIR}/promtail-config.yml"
+
+# Ambos os arquivos contêm INGEST_PASSWORD em texto claro — nunca world-readable
+# (achado C3 da auditoria de segurança: estavam 644, legíveis por qualquer
+# usuário local da EC2 do cliente).
+chown 65534:65534 "${CONF_DIR}/prometheus-agent.yml"  # lido pelo prometheus-agent, roda como "nobody"
+chmod 640 "${CONF_DIR}/prometheus-agent.yml"
+chown root:root "${CONF_DIR}/promtail-config.yml"      # lido pelo promtail, roda como root
+chmod 600 "${CONF_DIR}/promtail-config.yml"
 
 {
   echo "CENTRAL_INGEST_DOMAIN=${CENTRAL_INGEST_DOMAIN}"
