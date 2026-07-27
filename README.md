@@ -4,13 +4,15 @@ Instalador modular estilo "setup manager" para VPS/EC2, com foco em automação 
 
 Nasceu como resposta a um problema concreto: instaladores genéricos (ex: SetupOrion) detectam o IP privado da interface de rede, o que quebra em EC2 (o IP público é NAT feito pela AWS, não fica bindado na ENI). Este projeto resolve isso nativamente via IMDSv2 e já nasce pensado para produção na AWS.
 
-## Comando único (depois de publicar o repo)
+## Comando único
 
 ```bash
-sudo bash <(curl -sSL setup.SEUDOMINIO.com.br)
+sudo bash -c "$(curl -sSL setup.arcuscloud.com.br)"
 ```
 
-Esse endpoint deve apenas servir o conteúdo de `bin/bootstrap.sh` (aponte um DNS/Cloudflare Worker/S3+CloudFront pra esse arquivo). Ele clona o repo em `/opt/setup-platform` e chama `bin/setup.sh`, que abre o menu interativo.
+Use `bash -c "$(curl ...)"` (command substitution), não `bash <(curl ...)` (process substitution) — a segunda forma depende de `/dev/fd`, que não existe em algumas distribuições (ex: Amazon Linux, RHEL). A primeira funciona em qualquer shell POSIX-compatível.
+
+Esse endpoint serve o conteúdo de `bin/bootstrap.sh` via redirect (Cloudflare Page Rule → raw do GitHub). Ele clona o repo em `/opt/setup-platform` e chama `bin/setup.sh`, que abre o menu interativo.
 
 ## Uso local (sem publicar ainda)
 
