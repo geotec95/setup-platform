@@ -93,10 +93,17 @@ sp::docker::detect_app_stack() {
   # queremos os args — removemos a coluna do pid depois com awk.
   proc_args="$(docker top "$container" -eo pid,args 2>/dev/null | tail -n +2 | awk '{$1=""; sub(/^ /,""); print}')" || true
 
-  # Reforço best-effort: arquivos de manifesto na raiz comum de apps
-  # (só funciona se o container tiver /bin/sh; ignora erro se não tiver).
+  # Reforço best-effort: arquivos de manifesto em diretórios comuns de app +
+  # o WorkingDir real do container (ex: /usr/src/app, /code, /srv) — olhar só
+  # "/app" e "/" perde apps que seguem outras convenções de path.
+  local workdir
+  workdir="$(docker inspect "$container" --format '{{.Config.WorkingDir}}' 2>/dev/null)" || true
   files_hint="$(docker exec "$container" sh -c \
-    'for f in manage.py package.json requirements.txt Gemfile go.mod pom.xml build.gradle composer.json; do [ -f "/app/$f" ] && echo "$f"; [ -f "/$f" ] && echo "$f"; done; true' \
+    "for d in '${workdir}' /app /usr/src/app /srv/app /code /; do
+       for f in manage.py package.json requirements.txt Gemfile go.mod pom.xml build.gradle composer.json; do
+         [ -n \"\$d\" ] && [ -f \"\$d/\$f\" ] && echo \"\$f\"
+       done
+     done; true" \
     2>/dev/null | sort -u | tr '\n' ' ')" || true
 
   local lang="" framework="" pkg=""
