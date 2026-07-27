@@ -5,7 +5,7 @@
 # fluxo do SetupOrion, mas com a base própria e o fix de IP da AWS já embutido.
 set -Eeuo pipefail
 
-REPO_URL="${SP_REPO_URL:-https://github.com/SEU-USUARIO/setup-platform.git}"
+REPO_URL="${SP_REPO_URL:-https://github.com/geotec95/setup-platform.git}"
 INSTALL_DIR="/opt/setup-platform"
 
 if [[ "$(id -u)" -ne 0 ]]; then
