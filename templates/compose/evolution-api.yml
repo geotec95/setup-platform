@@ -34,7 +34,9 @@ services:
           - node.role == manager
 
   evolution-api:
-    image: atendai/evolution-api:latest
+    # atendai/evolution-api (nome antigo) ficou indisponível/privado — o
+    # projeto migrou pra este repositório Docker Hub.
+    image: evoapicloud/evolution-api:latest
     environment:
       - SERVER_URL=https://${DOMAIN}
       - AUTHENTICATION_API_KEY=${API_KEY}
