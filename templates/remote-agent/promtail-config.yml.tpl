@@ -34,3 +34,15 @@ scrape_configs:
         target_label: swarm_service
       - source_labels: [__meta_docker_container_log_stream]
         target_label: stream
+    pipeline_stages:
+      # Mesmo tratamento do observability/promtail-config.yml: desembrulha o
+      # envelope JSON do Docker e extrai um label "level" por heurística de
+      # palavra-chave (não dá pra exigir formato estruturado de cada cliente).
+      - docker: {}
+      - regex:
+          expression: '(?i)\b(?P<level>trace|debug|info|warn(?:ing)?|error|fatal|panic|critical)\b'
+      - template:
+          source: level
+          template: '{{ ToLower .Value | replace "warning" "warn" | replace "critical" "error" | replace "panic" "fatal" }}'
+      - labels:
+          level:

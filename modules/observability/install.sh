@@ -115,6 +115,7 @@ cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/docker-overview.json" "${CON
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/remote-clients.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/remote-clients.json"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-contactpoints.yml" "${CONF_DIR}/grafana/provisioning/alerting/contactpoints.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-policies.yml"     "${CONF_DIR}/grafana/provisioning/alerting/policies.yml"
+cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-rules.yml"       "${CONF_DIR}/grafana/provisioning/alerting/rules.yml"
 
 # --- .env do módulo ---
 # INGEST_HTPASSWD_ENTRY contém "$" (hash apr1) — usar printf %q pra escapar

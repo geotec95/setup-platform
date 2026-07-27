@@ -35,3 +35,20 @@ scrape_configs:
       # stdout/stderr
       - source_labels: [__meta_docker_container_log_stream]
         target_label: stream
+    pipeline_stages:
+      # Sem isso, cada linha empurrada pro Loki é o envelope JSON bruto do
+      # Docker ({"log":"...","stream":"stdout","time":"..."}) em vez do
+      # conteúdo real do log da aplicação — o stage "docker" desembrulha isso
+      # e usa o "time" do próprio Docker como timestamp da entrada.
+      - docker: {}
+      # Heurística simples de nível de log: funciona pra qualquer app (não dá
+      # pra exigir um formato estruturado específico de cada cliente), só
+      # procura a palavra de nível em qualquer lugar da linha. Vira label
+      # "level", usado pelo alerta de taxa de erro e pra filtro no Grafana.
+      - regex:
+          expression: '(?i)\b(?P<level>trace|debug|info|warn(?:ing)?|error|fatal|panic|critical)\b'
+      - template:
+          source: level
+          template: '{{ ToLower .Value | replace "warning" "warn" | replace "critical" "error" | replace "panic" "fatal" }}'
+      - labels:
+          level:

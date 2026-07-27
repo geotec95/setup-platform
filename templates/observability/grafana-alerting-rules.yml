@@ -1,0 +1,46 @@
+# templates/observability/grafana-alerting-rules.yml
+# Regra de alerta de triagem de logs: dispara quando um container/cliente
+# produz muitas linhas com level=error num intervalo curto. Usa o mesmo
+# datasource Loki (uid explícito "Loki", ver grafana-datasources.yml) e os
+# mesmos contact points já provisionados em grafana-alerting-contactpoints.yml
+# (roteamento definido em grafana-alerting-policies.yml).
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: log-triage
+    folder: "Observabilidade"
+    interval: 1m
+    rules:
+      - uid: log-error-rate-high
+        title: "Taxa de erros nos logs acima do normal"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: Loki
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum by (container, client) (count_over_time({job="containerlogs", level="error"}[5m]))'
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [20]
+        annotations:
+          summary: "Mais de 20 linhas de erro em 5min: {{ $labels.container }} (cliente: {{ $labels.client }})"
+        labels: {}
