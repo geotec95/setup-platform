@@ -89,7 +89,9 @@ sp::docker::detect_app_stack() {
   # chamadas abaixo: o exit code natural (ex: nenhum arquivo encontrado, ou
   # container sem /bin/sh) não pode derrubar o script chamador por causa do
   # `set -e` herdado deste arquivo.
-  proc_args="$(docker top "$container" -eo args 2>/dev/null | tail -n +2)" || true
+  # docker top exige "pid" na formatação customizada, mesmo quando só
+  # queremos os args — removemos a coluna do pid depois com awk.
+  proc_args="$(docker top "$container" -eo pid,args 2>/dev/null | tail -n +2 | awk '{$1=""; sub(/^ /,""); print}')" || true
 
   # Reforço best-effort: arquivos de manifesto na raiz comum de apps
   # (só funciona se o container tiver /bin/sh; ignora erro se não tiver).
