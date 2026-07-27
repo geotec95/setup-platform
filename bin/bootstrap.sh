@@ -9,7 +9,7 @@ REPO_URL="${SP_REPO_URL:-https://github.com/geotec95/setup-platform.git}"
 INSTALL_DIR="/opt/setup-platform"
 
 if [[ "$(id -u)" -ne 0 ]]; then
-  echo "Rode como root: sudo bash <(curl -sSL setup.SEUDOMINIO.com.br)"
+  echo "Rode como root: sudo bash <(curl -sSL setup.arcuscloud.com.br)"
   exit 1
 fi
 
