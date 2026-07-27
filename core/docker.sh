@@ -85,14 +85,17 @@ sp::docker::detect_app_stack() {
   fi
 
   # `docker top` lê a tabela de processos do host — funciona mesmo se o
-  # container não tiver shell/ferramentas instaladas.
-  proc_args="$(docker top "$container" -eo args 2>/dev/null | tail -n +2)"
+  # container não tiver shell/ferramentas instaladas. `|| true` em ambas as
+  # chamadas abaixo: o exit code natural (ex: nenhum arquivo encontrado, ou
+  # container sem /bin/sh) não pode derrubar o script chamador por causa do
+  # `set -e` herdado deste arquivo.
+  proc_args="$(docker top "$container" -eo args 2>/dev/null | tail -n +2)" || true
 
   # Reforço best-effort: arquivos de manifesto na raiz comum de apps
   # (só funciona se o container tiver /bin/sh; ignora erro se não tiver).
   files_hint="$(docker exec "$container" sh -c \
-    'for f in manage.py package.json requirements.txt Gemfile go.mod pom.xml build.gradle composer.json; do [ -f "/app/$f" ] && echo "$f"; [ -f "/$f" ] && echo "$f"; done' \
-    2>/dev/null | sort -u | tr '\n' ' ')"
+    'for f in manage.py package.json requirements.txt Gemfile go.mod pom.xml build.gradle composer.json; do [ -f "/app/$f" ] && echo "$f"; [ -f "/$f" ] && echo "$f"; done; true' \
+    2>/dev/null | sort -u | tr '\n' ' ')" || true
 
   local lang="" framework="" pkg=""
   case "$proc_args" in
