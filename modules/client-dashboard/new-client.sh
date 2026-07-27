@@ -32,11 +32,14 @@
 #      e escala horizontalmente sem tocar no Grafana compartilhado.
 #
 # Trade-off assumido: os painéis embutidos via "public dashboard" ficam
-# acessíveis a quem tiver a URL (sem exigir login). Isso é aceitável para um
-# MVP "premium" de baixo custo, mas se o cliente exigir controle de acesso
-# forte, a evolução natural é trocar o iframe público por embedding autenticado
-# (token de viewer com expiração curta, renovado por um backend) ou avaliar
-# Grafana Enterprise White-Labeling caso o cliente pague por isso.
+# acessíveis a quem tiver a URL (sem exigir login). Isso é aceitável APENAS
+# porque o dashboard copiado é travado (allowlist + templating removido +
+# "$client" substituído pelo slug fixo, ver passo 3 abaixo) para mostrar só os
+# dados DESTE cliente — nunca copie/publique um dashboard sem essa filtragem.
+# Se o cliente exigir controle de acesso forte, a evolução natural é trocar o
+# iframe público por embedding autenticado (token de viewer com expiração
+# curta, renovado por um backend) ou avaliar Grafana Enterprise White-Labeling
+# caso o cliente pague por isso.
 # --------------------------------------------------------------------------------
 #
 # Uso (modo não interativo, pensado para automação/CI):
@@ -188,33 +191,54 @@ sp::cd::grafana_admin_api_org "$ORG_ID" POST "/api/org/users" \
   >/dev/null 2>&1 || sp::warn "Usuário já era membro da org (ou role já atribuída) — seguindo."
 
 # ------------------------------------------------- 3) Copiar dashboards padrão
-# Busca os dashboards da organização PRINCIPAL (id=1, org padrão do admin) e
-# recria-os na org do cliente, usando o header X-Grafana-Org-Id para agir "como
-# admin dentro da org do cliente" (evita precisar logar como o viewer, que não
-# tem permissão de escrita).
-sp::info "Copiando dashboards padrão para a org do cliente..."
-SOURCE_DASHBOARDS_JSON="$(sp::cd::grafana_admin_api_org 1 GET "/api/search?type=dash-db")"
+# ATENÇÃO — achado C2 da auditoria de segurança (não reverta sem entender):
+# Antes, este loop buscava TODOS os dashboards da org 1 via /api/search e
+# publicava cada um como public-dashboard. Dois problemas graves:
+#   1) Copiava também dashboards internos (ex: docker-overview.json, que mostra
+#      logs/métricas do SERVIDOR CENTRAL da Arcus, não do cliente) para a org
+#      do cliente e os publicava na internet sem login.
+#   2) O dashboard "remote-clients.json" tem uma variável $client com
+#      includeAll=true e valor salvo "All" — public dashboards não deixam o
+#      visitante trocar a variável, então o link público de QUALQUER cliente
+#      mostrava métricas E LOGS de TODOS os clientes.
+# Fix: (a) allowlist explícita de UIDs publicáveis (nunca mais um `search`
+# cego); (b) remove a seção `templating` e substitui todo "$client" literal
+# pelo slug fixo deste cliente antes de salvar — assim o dashboard copiado
+# fica estruturalmente preso a UM cliente, não importa o que o Grafana ou o
+# visitante tentem fazer com a URL pública.
+PUBLISHABLE_DASHBOARD_UIDS=("remote-clients")
+
+sp::info "Copiando dashboards padrão (allowlist) para a org do cliente..."
 PANEL_URLS=()
 
-while IFS= read -r uid; do
-  [[ -z "$uid" ]] && continue
-  DASH_JSON="$(sp::cd::grafana_admin_api_org 1 GET "/api/dashboards/uid/${uid}")"
+for uid in "${PUBLISHABLE_DASHBOARD_UIDS[@]}"; do
+  DASH_JSON="$(sp::cd::grafana_admin_api_org 1 GET "/api/dashboards/uid/${uid}" || true)"
+  if [[ -z "$DASH_JSON" ]] || [[ "$(echo "$DASH_JSON" | jq -r '.dashboard // empty')" == "" ]]; then
+    sp::warn "Dashboard '${uid}' não encontrado na org principal — pulando (instale/atualize o observability primeiro)."
+    continue
+  fi
   DASH_TITLE="$(echo "$DASH_JSON" | jq -r '.dashboard.title')"
 
-  # Remove campos de identidade (id/uid/version) para permitir recriação em
-  # outra org sem conflito; overwrite=true garante idempotência em reexecuções.
-  NEW_DASH_PAYLOAD="$(echo "$DASH_JSON" | jq '{
-    dashboard: (.dashboard | .id = null | .uid = null),
-    overwrite: true,
-    message: "replicado por new-client.sh"
-  }')"
+  # Remove id/uid (recriação sem conflito), zera templating (o visitante do
+  # link público não pode trocar variável) e substitui "$client" literal pelo
+  # slug fixo deste cliente em qualquer string do dashboard (título, expr,
+  # legendFormat, etc) — isso é o que impede o link público de um cliente
+  # mostrar dados de outro.
+  NEW_DASH_PAYLOAD="$(echo "$DASH_JSON" | jq --arg slug "$CLIENT_SLUG" '
+    .dashboard.id = null |
+    .dashboard.uid = null |
+    .dashboard.templating = {list: []} |
+    .dashboard |= walk(if type == "string" then gsub("\\$client"; $slug) else . end) |
+    {dashboard: .dashboard, overwrite: true, message: "replicado por new-client.sh (filtrado para \($slug))"}
+  ')"
 
   IMPORT_RESULT="$(sp::cd::grafana_admin_api_org "$ORG_ID" POST "/api/dashboards/db" "$NEW_DASH_PAYLOAD")"
   NEW_UID="$(echo "$IMPORT_RESULT" | jq -r '.uid')"
-  sp::ok "Dashboard '${DASH_TITLE}' copiado para a org do cliente (uid=${NEW_UID})."
+  sp::ok "Dashboard '${DASH_TITLE}' copiado e filtrado para client='${CLIENT_SLUG}' (uid=${NEW_UID})."
 
   # Habilita "public dashboard" (somente leitura, sem login) para permitir o
-  # embed via iframe no wrapper estático — ver decisão de arquitetura no topo.
+  # embed via iframe no wrapper estático — seguro agora que o dashboard está
+  # travado no slug deste cliente (ver decisão de arquitetura no topo).
   PUBLIC_RESULT="$(sp::cd::grafana_admin_api_org "$ORG_ID" POST \
     "/api/dashboards/uid/${NEW_UID}/public-dashboards" \
     '{"isEnabled": true, "share": "public"}' || true)"
@@ -225,7 +249,7 @@ while IFS= read -r uid; do
   else
     sp::warn "Não foi possível habilitar public-dashboard para '${DASH_TITLE}' (recurso pode não estar habilitado no Grafana). Pulei o iframe."
   fi
-done < <(echo "$SOURCE_DASHBOARDS_JSON" | jq -r '.[].uid')
+done
 
 if [[ "${#PANEL_URLS[@]}" -eq 0 ]]; then
   sp::warn "Nenhum painel público disponível ainda — o wrapper será gerado sem iframes. Rode novamente após publicar dashboards na org principal do Grafana."
