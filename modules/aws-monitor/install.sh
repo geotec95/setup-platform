@@ -16,6 +16,7 @@ set -Eeuo pipefail
 SP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck disable=SC1091
 source "${SP_ROOT}/core/common.sh"
+source "${SP_ROOT}/core/os.sh"
 # shellcheck disable=SC1091
 source "${SP_ROOT}/core/docker.sh"
 # shellcheck disable=SC1091
@@ -48,7 +49,7 @@ sp::aws_monitor::ensure_awscli() {
   [[ "$arch" == "aarch64" || "$arch" == "arm64" ]] && pkg="awscli-exe-linux-aarch64.zip"
 
   curl -fsSL "https://awscli.amazonaws.com/${pkg}" -o "${tmp}/awscliv2.zip"
-  sp::has_cmd unzip || { sp::info "Instalando unzip..."; apt-get update -qq && apt-get install -y -qq unzip; }
+  sp::has_cmd unzip || { sp::info "Instalando unzip..."; sp::os::install_pkg unzip; }
   unzip -q "${tmp}/awscliv2.zip" -d "$tmp"
   "${tmp}/aws/install" --update
   rm -rf "$tmp"
@@ -58,7 +59,7 @@ sp::aws_monitor::ensure_awscli() {
 sp::aws_monitor::ensure_jq() {
   sp::has_cmd jq && { sp::ok "jq já instalado."; return 0; }
   sp::info "Instalando jq..."
-  apt-get update -qq && apt-get install -y -qq jq
+  sp::os::install_pkg jq
   sp::ok "jq instalado."
 }
 
