@@ -1,0 +1,64 @@
+version: "3.8"
+
+# Evolution API — gateway WhatsApp self-hosted, usado como canal de alerta
+# (Grafana -> webhook -> n8n -> Evolution API -> WhatsApp). Precisa de
+# Postgres (estado das instâncias) e Redis (cache/fila) — ver
+# config/tools/evolution-api.yaml pro racional completo.
+
+services:
+  evolution-postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=evolution_db
+    volumes:
+      - /data/evolution-api/postgres:/var/lib/postgresql/data
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  evolution-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - /data/evolution-api/redis:/data
+    networks:
+      - rede_publica
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  evolution-api:
+    image: atendai/evolution-api:latest
+    environment:
+      - SERVER_URL=https://${DOMAIN}
+      - AUTHENTICATION_API_KEY=${API_KEY}
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:${POSTGRES_PASSWORD}@evolution-postgres:5432/evolution_db?schema=evolution_api
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://evolution-redis:6379/6
+      - TZ=${TZ}
+    volumes:
+      - /data/evolution-api/instances:/evolution/instances
+    networks:
+      - rede_publica
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.evolution-api.rule=Host(`${DOMAIN}`)"
+        - "traefik.http.routers.evolution-api.entrypoints=websecure"
+        - "traefik.http.routers.evolution-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.evolution-api.loadbalancer.server.port=8080"
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  rede_publica:
+    external: true

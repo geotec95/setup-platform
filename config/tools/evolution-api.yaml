@@ -1,0 +1,27 @@
+name: "Evolution API"
+slug: evolution-api
+category: automacao
+description: >-
+  Gateway self-hosted de WhatsApp (conecta via QR code, número normal, sem
+  burocracia de Meta Business API). Usado como canal de notificação/alerta
+  (ex: alertas do Grafana) orquestrado por workflows N8N — Grafana manda um
+  webhook pro n8n, que chama a Evolution API pra enviar a mensagem.
+requires:
+  - docker
+  - reverse_proxy
+ports:
+  - "8080"
+domains:
+  - "whatsapp.SEUDOMINIO.com.br"
+env_required:
+  - DOMAIN
+  - POSTGRES_PASSWORD
+  - API_KEY
+volumes:
+  - /data/evolution-api
+install_strategy: docker_compose
+healthcheck:
+  type: http
+  url: "http://localhost:8080/"
+validate_command: "docker ps --format '{{.Names}}' | grep -q '^evolution-api_evolution-api'"
+uninstall_strategy: docker_compose_down
