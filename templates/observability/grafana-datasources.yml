@@ -6,6 +6,12 @@
 # `uid:` fixo em cada datasource (em vez de deixar o Grafana gerar um
 # aleatório) — os dashboards deste projeto (templates/observability/dashboards/*.json)
 # referenciam os datasources por esses UIDs literais.
+#
+# ORDEM IMPORTA: o Grafana valida "derivedFields.datasourceUid" na ordem em
+# que os datasources aparecem neste arquivo — Tempo precisa vir ANTES de
+# Loki, senão a referência a "Tempo" no derivedField do Loki falha com
+# "Datasource provisioning error: data source not found" e o Grafana nem
+# sobe (achado real desta sessão, não hipotético).
 apiVersion: 1
 
 datasources:
@@ -15,6 +21,13 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
+    editable: false
+
+  - name: Tempo
+    uid: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
     editable: false
 
   - name: Loki
@@ -31,10 +44,3 @@ datasources:
           matcherRegex: '"trace_id":"(\w+)"'
           name: TraceID
           url: '${__value.raw}'
-
-  - name: Tempo
-    uid: Tempo
-    type: tempo
-    access: proxy
-    url: http://tempo:3200
-    editable: false

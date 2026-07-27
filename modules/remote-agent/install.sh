@@ -34,6 +34,28 @@ INGEST_USER="${INGEST_USER:-$(sp::ask "Usuário de ingestão (mostrado ao instal
 INGEST_PASSWORD="${INGEST_PASSWORD:-$(sp::ask "Senha de ingestão (mostrada ao instalar o observability central)")}"
 CLIENT_LABEL="${CLIENT_LABEL:-$(sp::ask "Identificador deste cliente/servidor (ex: geotec-prod, sem espaços)")}"
 
+# Scrape de métricas de aplicação (RED: rate/errors/duration) — opcional, ao
+# contrário dos campos acima (por isso não usa sp::ask, que exige resposta).
+# Requer que o container da app exponha /metrics (ex: django-prometheus,
+# prometheus-fastapi-instrumentator, prometheus-flask-exporter) e esteja
+# alcançável pelo nome na mesma rede Docker do remote-agent (rede_publica) —
+# ver "docker network connect rede_publica <container-da-app>".
+if [[ -z "${APP_CONTAINER:-}" ]]; then
+  read -r -p "$(echo -e "${C_WHITE}Nome do container da app pra monitorar métricas (ENTER pra pular): ${C_RESET}")" APP_CONTAINER
+fi
+if [[ -n "${APP_CONTAINER:-}" && -z "${APP_METRICS_PORT:-}" ]]; then
+  read -r -p "$(echo -e "${C_WHITE}Porta do endpoint /metrics dessa app (ex: 8000): ${C_RESET}")" APP_METRICS_PORT
+fi
+
+if [[ -n "${APP_CONTAINER:-}" && -n "${APP_METRICS_PORT:-}" ]]; then
+  APP_SCRAPE_CONFIG="  - job_name: app
+    metrics_path: /metrics
+    static_configs:
+      - targets: [\"${APP_CONTAINER}:${APP_METRICS_PORT}\"]"
+else
+  APP_SCRAPE_CONFIG="# nenhuma app configurada para scrape de métricas — rode com --update pra adicionar"
+fi
+
 DATA_DIR="$(sp::ensure_data_dir "$SLUG")"
 chown -R 65534:65534 "${DATA_DIR}"  # prom/prometheus (agent mode) roda como "nobody"
 
@@ -46,7 +68,9 @@ sed -e "s|{{CENTRAL_INGEST_DOMAIN}}|${CENTRAL_INGEST_DOMAIN}|g" \
     -e "s|{{INGEST_USER}}|${INGEST_USER}|g" \
     -e "s|{{INGEST_PASSWORD}}|${INGEST_PASSWORD}|g" \
     -e "s|{{CLIENT_LABEL}}|${CLIENT_LABEL}|g" \
-    "${SP_TEMPLATES_DIR}/remote-agent/prometheus-agent.yml.tpl" > "${CONF_DIR}/prometheus-agent.yml"
+    "${SP_TEMPLATES_DIR}/remote-agent/prometheus-agent.yml.tpl" \
+  | awk -v cfg="$APP_SCRAPE_CONFIG" '{gsub(/{{APP_SCRAPE_CONFIG}}/, cfg); print}' \
+  > "${CONF_DIR}/prometheus-agent.yml"
 
 sed -e "s|{{CENTRAL_INGEST_DOMAIN}}|${CENTRAL_INGEST_DOMAIN}|g" \
     -e "s|{{INGEST_USER}}|${INGEST_USER}|g" \
@@ -67,11 +91,22 @@ chmod 600 "${CONF_DIR}/promtail-config.yml"
   echo "INGEST_USER=${INGEST_USER}"
   echo "INGEST_PASSWORD=${INGEST_PASSWORD}"
   echo "CLIENT_LABEL=${CLIENT_LABEL}"
+  echo "APP_CONTAINER=${APP_CONTAINER:-}"
+  echo "APP_METRICS_PORT=${APP_METRICS_PORT:-}"
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
 sp::docker::ensure_network rede_publica
 docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/remote-agent.yml" "$SLUG"
+# prometheus-agent/promtail só recebem config via bind mount — sem isso, uma
+# mudança em --update que não altere a spec do serviço (ex: só o conteúdo do
+# .yml) fica presa no container antigo, rodando config desatualizada.
+sp::docker::force_restart "${SLUG}_prometheus-agent" "${SLUG}_promtail"
 
 sp::ok "Agente remoto implantado. Métricas/logs deste servidor (label client=${CLIENT_LABEL}) começarão a aparecer no Grafana central em instantes."
-sp::log "INSTALL" "$SLUG" "client_label=${CLIENT_LABEL} central=${CENTRAL_INGEST_DOMAIN}"
+if [[ -n "${APP_CONTAINER:-}" ]]; then
+  sp::ok "Scrape de métricas da app '${APP_CONTAINER}:${APP_METRICS_PORT}' configurado (job_name=app)."
+else
+  sp::warn "Nenhuma app configurada para scrape de métricas. Rode de novo com --update pra adicionar."
+fi
+sp::log "INSTALL" "$SLUG" "client_label=${CLIENT_LABEL} central=${CENTRAL_INGEST_DOMAIN} app_container=${APP_CONTAINER:-none}"

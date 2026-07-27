@@ -17,6 +17,7 @@ scrape_configs:
     static_configs:
       - targets: ["cadvisor:8080"]
 
+{{APP_SCRAPE_CONFIG}}
 remote_write:
   - url: "https://{{CENTRAL_INGEST_DOMAIN}}/api/v1/write"
     basic_auth:

@@ -101,6 +101,10 @@ sp::docker::ensure_network rede_publica
 # shellcheck disable=SC1090
 set -a; source "$ENV_FILE"; set +a
 docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/observability.yml" "$SLUG"
+# prometheus/loki/tempo/promtail só recebem config via bind mount — sem isso,
+# uma mudança em --update que não altere a spec do serviço (só o conteúdo do
+# .yml) fica presa no container antigo, rodando config desatualizada.
+sp::docker::force_restart "${SLUG}_prometheus" "${SLUG}_loki" "${SLUG}_tempo" "${SLUG}_promtail" "${SLUG}_grafana"
 
 sp::ok "Observabilidade implantada. Aguarde ~30s para o certificado SSL e acesse: https://${DOMAIN}"
 sp::ok "Login do Grafana -> usuário: admin / senha: ${GRAFANA_ADMIN_PASSWORD}"

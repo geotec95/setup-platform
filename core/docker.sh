@@ -53,6 +53,20 @@ sp::docker::deploy_stack() {
   sp::ok "Stack '${name}' deployada a partir de ${compose_file}."
 }
 
+# Força a recriação de serviços cujo ÚNICO ponto de configuração é um bind
+# mount de arquivo (ex: prometheus.yml, promtail-config.yml). O Swarm só
+# recria um container quando a SPEC do serviço muda (imagem, labels, env,
+# etc) — mudar apenas o CONTEÚDO de um arquivo montado via bind não é
+# detectado, e o container antigo continua rodando com a config velha
+# indefinidamente. Uso: sp::docker::force_restart <serviço1> [serviço2 ...]
+sp::docker::force_restart() {
+  local svc
+  for svc in "$@"; do
+    docker service update --force "$svc" >/dev/null
+  done
+  sp::ok "Serviços recriados (config de arquivo recarregada): $*"
+}
+
 sp::docker::remove_stack() {
   local name="$1"
   if docker stack ls --format '{{.Name}}' | grep -qx "$name"; then
