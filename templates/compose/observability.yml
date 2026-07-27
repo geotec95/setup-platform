@@ -8,10 +8,6 @@ version: "3.8"
 # publicados no host e sem labels do Traefik (ver decisão de segurança em
 # config/tools/observability.yaml).
 #
-# EXTENSÃO FUTURA: um serviço `tempo` (tracing distribuído) pode ser
-# adicionado aqui futuramente, seguindo o mesmo modelo do Loki (uso interno
-# apenas + datasource adicional no grafana-datasources.yml).
-
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -100,6 +96,33 @@ services:
         - "traefik.http.routers.observability-ingest-logs.tls.certresolver=letsencryptresolver"
         - "traefik.http.routers.observability-ingest-logs.middlewares=observability-ingest-auth"
         - "traefik.http.services.observability-ingest-logs.loadbalancer.server.port=3100"
+      placement:
+        constraints:
+          - node.role == manager
+
+  tempo:
+    # Pinado em 2.x — a v3 mudou radicalmente pra arquitetura de microserviços
+    # com Kafka/Redpanda obrigatório, incompatível com single-binary/config
+    # simples (ver templates/observability/tempo-config.yml).
+    image: grafana/tempo:2.10.7
+    command:
+      - "-config.file=/etc/tempo/tempo-config.yml"
+    volumes:
+      - /data/observability/config/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - /data/observability/tempo:/var/tempo
+    networks:
+      - rede_publica
+    # Sem healthcheck: imagem distroless, sem wget/curl/sh no PATH.
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        # Endpoint de ingestão de traces via OTLP/HTTP (padrão: POST /v1/traces),
+        # autenticado pelo mesmo middleware Basic Auth usado por métricas/logs.
+        - "traefik.http.routers.observability-ingest-traces.rule=Host(`${INGEST_DOMAIN}`) && PathPrefix(`/v1/traces`)"
+        - "traefik.http.routers.observability-ingest-traces.entrypoints=websecure"
+        - "traefik.http.routers.observability-ingest-traces.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.observability-ingest-traces.middlewares=observability-ingest-auth"
+        - "traefik.http.services.observability-ingest-traces.loadbalancer.server.port=4318"
       placement:
         constraints:
           - node.role == manager

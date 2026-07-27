@@ -2,10 +2,15 @@
 # Provisionamento automático de datasources do Grafana (evita configuração
 # manual pós-instalação). Copiado para
 # /data/observability/config/grafana/provisioning/datasources/datasources.yml
+#
+# `uid:` fixo em cada datasource (em vez de deixar o Grafana gerar um
+# aleatório) — os dashboards deste projeto (templates/observability/dashboards/*.json)
+# referenciam os datasources por esses UIDs literais.
 apiVersion: 1
 
 datasources:
   - name: Prometheus
+    uid: Prometheus
     type: prometheus
     access: proxy
     url: http://prometheus:9090
@@ -13,7 +18,23 @@ datasources:
     editable: false
 
   - name: Loki
+    uid: Loki
     type: loki
     access: proxy
     url: http://loki:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        # Se os logs da app tiverem um campo trace_id (log estruturado JSON),
+        # o Grafana já mostra um link direto pro trace correspondente no Tempo.
+        - datasourceUid: Tempo
+          matcherRegex: '"trace_id":"(\w+)"'
+          name: TraceID
+          url: '${__value.raw}'
+
+  - name: Tempo
+    uid: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
     editable: false

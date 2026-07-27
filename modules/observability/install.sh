@@ -57,12 +57,15 @@ sp::ensure_data_dir "${SLUG}/grafana" >/dev/null
 chown -R 472:472 "${SP_DATA_ROOT}/${SLUG}/grafana"         # grafana/grafana roda como uid "grafana"
 sp::ensure_data_dir "${SLUG}/loki" >/dev/null
 chown -R 10001:10001 "${SP_DATA_ROOT}/${SLUG}/loki"        # grafana/loki roda como uid "loki"
+sp::ensure_data_dir "${SLUG}/tempo" >/dev/null
+chown -R 10001:10001 "${SP_DATA_ROOT}/${SLUG}/tempo"       # grafana/tempo também roda como uid 10001
 
 # --- Diretórios de configuração (materializados a partir dos templates a cada install/update) ---
 CONF_DIR="${SP_DATA_ROOT}/${SLUG}/config"
 mkdir -p \
   "${CONF_DIR}/prometheus" \
   "${CONF_DIR}/loki" \
+  "${CONF_DIR}/tempo" \
   "${CONF_DIR}/promtail" \
   "${CONF_DIR}/grafana/provisioning/datasources" \
   "${CONF_DIR}/grafana/provisioning/dashboards/json"
@@ -72,6 +75,7 @@ chmod -R a+rX "$CONF_DIR"
 
 cp -f "${SP_TEMPLATES_DIR}/observability/prometheus.yml.tpl"              "${CONF_DIR}/prometheus/prometheus.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/loki-config.yml"                 "${CONF_DIR}/loki/loki-config.yml"
+cp -f "${SP_TEMPLATES_DIR}/observability/tempo-config.yml"                "${CONF_DIR}/tempo/tempo-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/promtail-config.yml"             "${CONF_DIR}/promtail/promtail-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-datasources.yml"         "${CONF_DIR}/grafana/provisioning/datasources/datasources.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-dashboards-provisioning.yml" "${CONF_DIR}/grafana/provisioning/dashboards/dashboards.yml"
