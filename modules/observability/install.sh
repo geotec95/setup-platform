@@ -36,11 +36,14 @@ if $UPDATE && [[ -f "$ENV_FILE" ]]; then
 fi
 
 # Só o Grafana tem painel web público — é o único que precisa de domínio/HTTPS.
-DOMAIN="$(sp::proxy::ask_domain "grafana")"
+# Reaproveita em --update (mesmo padrão das credenciais logo abaixo): sem
+# isso, todo --update pedia o domínio de novo, e via automação não-interativa
+# (ex: SSM RunCommand, sem stdin) isso travava sp::ask num loop infinito.
+DOMAIN="${DOMAIN:-$(sp::proxy::ask_domain "grafana")}"
 # Domínio separado para os endpoints de ingestão (remote_write do Prometheus
 # e push do Loki) usados por agentes remotos (modules/remote-agent) rodando
 # em EC2 de clientes, inclusive em outras contas AWS.
-INGEST_DOMAIN="$(sp::proxy::ask_domain "ingest")"
+INGEST_DOMAIN="${INGEST_DOMAIN:-$(sp::proxy::ask_domain "ingest")}"
 GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-$(sp::gen_password 24)}"
 INGEST_USER="${INGEST_USER:-ingest}"
 INGEST_PASSWORD="${INGEST_PASSWORD:-$(sp::gen_password 24)}"

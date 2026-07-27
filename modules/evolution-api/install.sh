@@ -30,7 +30,7 @@ API_KEY="${API_KEY:-$(sp::gen_password 32)}"
 sp::docker::install
 sp::proxy::ensure_traefik
 
-DOMAIN="$(sp::proxy::ask_domain "$SLUG")"
+DOMAIN="${DOMAIN:-$(sp::proxy::ask_domain "$SLUG")}"
 
 DATA_DIR="$(sp::ensure_data_dir "$SLUG")"
 mkdir -p "${DATA_DIR}/postgres" "${DATA_DIR}/redis" "${DATA_DIR}/instances"

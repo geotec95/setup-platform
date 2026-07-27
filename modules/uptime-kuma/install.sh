@@ -22,12 +22,20 @@ fi
 sp::docker::install
 sp::proxy::ensure_traefik
 
-DOMAIN="$(sp::proxy::ask_domain "$SLUG")"
+# Reaproveita DOMAIN existente em --update — sem isso, todo --update pedia
+# o domínio de novo, travando em automação não-interativa sem stdin (mesmo
+# bug corrigido em modules/observability/install.sh).
+ENV_FILE="${SP_ROOT}/modules/${SLUG}/.env"
+if $UPDATE && [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+
+DOMAIN="${DOMAIN:-$(sp::proxy::ask_domain "$SLUG")}"
 DATA_DIR="$(sp::ensure_data_dir "$SLUG")"
 # Imagem louislam/uptime-kuma (tag release, não-rootless) roda como root
 # dentro do container — sem chown necessário, ao contrário do n8n/observability.
 
-ENV_FILE="${SP_ROOT}/modules/${SLUG}/.env"
 {
   echo "DOMAIN=${DOMAIN}"
   echo "TZ=America/Sao_Paulo"

@@ -34,7 +34,7 @@ if $UPDATE && [[ -f "$ENV_FILE" ]]; then
 fi
 N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY:-$(sp::gen_password 32)}"
 
-DOMAIN="$(sp::proxy::ask_domain "$SLUG")"
+DOMAIN="${DOMAIN:-$(sp::proxy::ask_domain "$SLUG")}"
 DATA_DIR="$(sp::ensure_data_dir "$SLUG")"
 chmod 700 "$DATA_DIR"
 chown -R 1000:1000 "$DATA_DIR"  # imagem n8nio/n8n roda como usuário "node" (UID 1000)
