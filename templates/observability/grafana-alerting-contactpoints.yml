@@ -1,0 +1,27 @@
+# templates/observability/grafana-alerting-contactpoints.yml
+# Contact points do unified alerting do Grafana. Montado em
+# /etc/grafana/provisioning/alerting/contactpoints.yml. Os valores entre
+# ${...} são expandidos pelo Grafana a partir das env vars do container
+# (suportado nativamente desde a Grafana 9.1 pra arquivos de provisioning) —
+# vêm do .env do módulo (ALERT_EMAIL_TO / ALERT_WEBHOOK_URL), preenchidos em
+# modules/observability/install.sh.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-equipe
+    receivers:
+      - uid: email-equipe-receiver
+        type: email
+        settings:
+          addresses: "${ALERT_EMAIL_TO}"
+          singleEmail: true
+
+  - orgId: 1
+    name: whatsapp-n8n
+    receivers:
+      - uid: whatsapp-n8n-receiver
+        type: webhook
+        settings:
+          url: "${ALERT_WEBHOOK_URL}"
+          httpMethod: POST

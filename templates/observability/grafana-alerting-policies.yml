@@ -1,0 +1,19 @@
+# templates/observability/grafana-alerting-policies.yml
+# Política de notificação: toda regra de alerta cai na rota raiz e é
+# encaminhada pros dois contact points (email + WhatsApp via n8n/Evolution
+# API) em paralelo — "continue: true" faz a política de e-mail não parar a
+# árvore antes de avaliar a de WhatsApp.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: email-equipe
+    group_by: ["alertname"]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 3h
+    routes:
+      - receiver: email-equipe
+        continue: true
+      - receiver: whatsapp-n8n
+        continue: true

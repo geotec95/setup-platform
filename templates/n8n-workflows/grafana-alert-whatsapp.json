@@ -1,0 +1,112 @@
+{
+  "name": "Grafana Alert -> WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "grafana-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2b3c4d5e-0001-4a11-9a11-000000000001",
+      "name": "Webhook (Grafana)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-780, 300],
+      "webhookId": "grafana-alert",
+      "notes": "URL final: https://<seu-n8n>/webhook/grafana-alert — usar essa URL no contact point 'webhook' do Grafana (provisioning/alerting/contactpoints.yaml)."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "evolution_url", "type": "string", "value": "PLACEHOLDER_EVOLUTION_API_URL" },
+            { "id": "2", "name": "evolution_api_key", "type": "string", "value": "PLACEHOLDER_EVOLUTION_API_KEY" },
+            { "id": "3", "name": "evolution_instance", "type": "string", "value": "principal" },
+            { "id": "4", "name": "whatsapp_number", "type": "string", "value": "PLACEHOLDER_WHATSAPP_NUMBER" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b3c4d5e-0002-4a11-9a11-000000000002",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-560, 300],
+      "notes": "Edite os 4 valores aqui depois de importar: URL da Evolution API, API key, nome da instância (padrão 'principal') e número de WhatsApp de destino (formato internacional, só dígitos)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formata o payload de alerta do Grafana (unified alerting webhook) em uma\n// mensagem de texto simples pro WhatsApp. Ver estrutura do payload em:\n// https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/webhook-notifier/\nconst body = $input.first().json.body || $input.first().json;\nconst alerts = body.alerts || [];\nconst status = (body.status || 'unknown').toUpperCase();\nconst title = body.title || (alerts[0] && alerts[0].labels && alerts[0].labels.alertname) || 'Alerta Grafana';\n\nconst lines = [`[${status}] ${title}`, ''];\n\nfor (const a of alerts) {\n  const name = (a.labels && a.labels.alertname) || 'alerta';\n  const summary = (a.annotations && (a.annotations.summary || a.annotations.description)) || '';\n  const instance = (a.labels && (a.labels.instance || a.labels.client)) || '';\n  lines.push(`- ${name}${instance ? ' (' + instance + ')' : ''}`);\n  if (summary) lines.push(`  ${summary}`);\n}\n\nconst text = lines.join('\\n');\nconst cfg = $('Configuração').first().json;\nreturn [{ json: { text, ...cfg } }];\n"
+      },
+      "id": "2b3c4d5e-0003-4a11-9a11-000000000003",
+      "name": "Formatar Mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolution_url }}/message/sendText/{{ $json.evolution_instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $json.evolution_api_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.whatsapp_number, text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "2b3c4d5e-0004-4a11-9a11-000000000004",
+      "name": "Enviar WhatsApp (Evolution API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "ok",
+        "options": { "responseCode": 200 }
+      },
+      "id": "2b3c4d5e-0005-4a11-9a11-000000000005",
+      "name": "Responder 200 pro Grafana",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [100, 300],
+      "notes": "Grafana espera resposta rápida do webhook — responde 200 assim que a mensagem foi disparada, sem esperar confirmação de entrega no WhatsApp."
+    }
+  ],
+  "connections": {
+    "Webhook (Grafana)": {
+      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+    },
+    "Configuração": {
+      "main": [[{ "node": "Formatar Mensagem", "type": "main", "index": 0 }]]
+    },
+    "Formatar Mensagem": {
+      "main": [[{ "node": "Enviar WhatsApp (Evolution API)", "type": "main", "index": 0 }]]
+    },
+    "Enviar WhatsApp (Evolution API)": {
+      "main": [[{ "node": "Responder 200 pro Grafana", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "description": "Recebe o webhook de alerta do Grafana (unified alerting) e repassa como mensagem de texto via Evolution API (WhatsApp). Depois de importar: (1) edite o node 'Configuração' com URL/API key da Evolution API, nome da instância e número de destino; (2) ative o workflow; (3) configure o contact point 'webhook' do Grafana apontando pra URL do node Webhook."
+  },
+  "tags": [
+    { "name": "observability" },
+    { "name": "alerting" },
+    { "name": "whatsapp" }
+  ]
+}

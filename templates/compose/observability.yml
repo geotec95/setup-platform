@@ -54,10 +54,24 @@ services:
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/
       - GF_USERS_ALLOW_SIGN_UP=false
       - TZ=${TZ}
+      # SMTP — usado pelos contact points de alerta (unified alerting).
+      # Desligado por padrão se SMTP_HOST não foi configurado no install.sh.
+      - GF_SMTP_ENABLED=${GF_SMTP_ENABLED}
+      - GF_SMTP_HOST=${SMTP_HOST}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}
+      - GF_SMTP_FROM_NAME=Arcus Cloud Security Alerts
+      - GF_SMTP_STARTTLS_POLICY=MandatoryStartTLS
+      # Lidos via expansão de env var (${...}) pelos arquivos de provisioning
+      # em grafana/provisioning/alerting (contactpoints.yml).
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO}
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL}
     volumes:
       - /data/observability/grafana:/var/lib/grafana
       - /data/observability/config/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - /data/observability/config/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - /data/observability/config/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
     networks:
       - rede_publica
     healthcheck:
