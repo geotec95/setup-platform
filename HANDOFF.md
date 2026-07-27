@@ -53,4 +53,3 @@ Uso: `bash modules/client-dashboard/new-client.sh <slug-cliente> <dominio-client
 4. Validar que `sp::network::public_ip` realmente resolve o IP público correto (esse era o bug original).
 5. Criar a IAM Role/Instance Profile na conta `geotec` usando `providers/aws/iam-policy-aws-monitor.json` e anexar na instância de teste.
 6. Depois de validar, publicar o repo no GitHub e configurar `SP_REPO_URL` em `bin/bootstrap.sh` + domínio apontando pra ele.
-# teste de auto-update — 1785179460
