@@ -67,6 +67,83 @@ sp::docker::force_restart() {
   sp::ok "Serviços recriados (config de arquivo recarregada): $*"
 }
 
+# Tenta identificar linguagem/framework de um container e sugere a
+# biblioteca de métricas Prometheus correspondente — usado por
+# modules/remote-agent/install.sh pra poupar o operador de ter que
+# descobrir isso na mão a cada cliente novo (ver caso real: precisou de
+# 3 rodadas de investigação manual pro wri-bioeconomy-backend, que era
+# Django). É heurística — sempre um "achado provável", nunca certeza
+# absoluta; o operador confirma/ajusta manualmente se a sugestão não bater.
+# Uso: sp::docker::detect_app_stack <container>
+sp::docker::detect_app_stack() {
+  local container="$1"
+  local proc_args files_hint=""
+
+  if ! docker inspect "$container" >/dev/null 2>&1; then
+    sp::warn "Container '${container}' não encontrado — pulando detecção automática."
+    return 0
+  fi
+
+  # `docker top` lê a tabela de processos do host — funciona mesmo se o
+  # container não tiver shell/ferramentas instaladas.
+  proc_args="$(docker top "$container" -eo args 2>/dev/null | tail -n +2)"
+
+  # Reforço best-effort: arquivos de manifesto na raiz comum de apps
+  # (só funciona se o container tiver /bin/sh; ignora erro se não tiver).
+  files_hint="$(docker exec "$container" sh -c \
+    'for f in manage.py package.json requirements.txt Gemfile go.mod pom.xml build.gradle composer.json; do [ -f "/app/$f" ] && echo "$f"; [ -f "/$f" ] && echo "$f"; done' \
+    2>/dev/null | sort -u | tr '\n' ' ')"
+
+  local lang="" framework="" pkg=""
+  case "$proc_args" in
+    *gunicorn*|*uwsgi*)
+      lang="Python (WSGI)"
+      if [[ "$files_hint" == *manage.py* ]] || echo "$proc_args" | grep -qi "wsgi:application\|/wsgi\b"; then
+        framework="Django"; pkg="django-prometheus"
+      else
+        framework="Flask (ou outro WSGI)"; pkg="prometheus-flask-exporter"
+      fi
+      ;;
+    *uvicorn*|*daphne*|*hypercorn*)
+      lang="Python (ASGI)"
+      framework="FastAPI (ou outro ASGI)"; pkg="prometheus-fastapi-instrumentator"
+      ;;
+    *"manage.py runserver"*|*"manage.py"*)
+      lang="Python"; framework="Django"; pkg="django-prometheus"
+      ;;
+    *node*)
+      lang="Node.js"; framework="Express/Fastify/Koa (genérico)"; pkg="prom-client"
+      ;;
+    *"java "*)
+      lang="Java"
+      if echo "$proc_args$files_hint" | grep -qi "spring"; then
+        framework="Spring Boot"; pkg="micrometer-registry-prometheus"
+      else
+        framework="JVM genérico"; pkg="simpleclient (io.prometheus:simpleclient)"
+      fi
+      ;;
+    *puma*|*unicorn*|*ruby*)
+      lang="Ruby"; framework="Rails (provável)"; pkg="yabeda-prometheus"
+      ;;
+    *php-fpm*|*php*)
+      lang="PHP"; framework="genérico"; pkg="promphp/prometheus_client_php"
+      ;;
+    *dotnet*)
+      lang=".NET"; framework="ASP.NET Core (provável)"; pkg="prometheus-net.AspNetCore"
+      ;;
+    *)
+      lang="não identificado"
+      ;;
+  esac
+
+  if [[ -n "$lang" && "$lang" != "não identificado" ]]; then
+    sp::ok "Stack detectada em '${container}': ${lang}${framework:+ / ${framework}}."
+    [[ -n "$pkg" ]] && sp::info "Sugestão de instrumentação: ${pkg} (expõe /metrics no formato Prometheus)."
+  else
+    sp::warn "Não consegui identificar a stack de '${container}' automaticamente (processo: ${proc_args:-desconhecido}). Configure a instrumentação manualmente."
+  fi
+}
+
 sp::docker::remove_stack() {
   local name="$1"
   if docker stack ls --format '{{.Name}}' | grep -qx "$name"; then

@@ -43,6 +43,9 @@ CLIENT_LABEL="${CLIENT_LABEL:-$(sp::ask "Identificador deste cliente/servidor (e
 if [[ -z "${APP_CONTAINER:-}" ]]; then
   read -r -p "$(echo -e "${C_WHITE}Nome do container da app pra monitorar métricas (ENTER pra pular): ${C_RESET}")" APP_CONTAINER
 fi
+if [[ -n "${APP_CONTAINER:-}" ]]; then
+  sp::docker::detect_app_stack "$APP_CONTAINER"
+fi
 if [[ -n "${APP_CONTAINER:-}" && -z "${APP_METRICS_PORT:-}" ]]; then
   read -r -p "$(echo -e "${C_WHITE}Porta do endpoint /metrics dessa app (ex: 8000): ${C_RESET}")" APP_METRICS_PORT
 fi
