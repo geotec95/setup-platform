@@ -36,7 +36,7 @@ ENV_FILE="${SP_ROOT}/modules/${SLUG}/.env"
 sp::docker::ensure_network rede_publica
 # shellcheck disable=SC1090
 set -a; source "$ENV_FILE"; set +a
-docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/uptime-kuma.yml" --detach=true "$SLUG"
+docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/uptime-kuma.yml" "$SLUG"
 
 sp::ok "Uptime Kuma implantado. Aguarde ~30s para o certificado SSL e acesse: https://${DOMAIN}"
 sp::ok "Crie a conta de administrador no primeiro acesso (tela de setup do próprio Uptime Kuma)."

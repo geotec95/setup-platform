@@ -71,7 +71,7 @@ chmod 600 "${CONF_DIR}/promtail-config.yml"
 chmod 600 "$ENV_FILE"
 
 sp::docker::ensure_network rede_publica
-docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/remote-agent.yml" --detach=true "$SLUG"
+docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/remote-agent.yml" "$SLUG"
 
 sp::ok "Agente remoto implantado. Métricas/logs deste servidor (label client=${CLIENT_LABEL}) começarão a aparecer no Grafana central em instantes."
 sp::log "INSTALL" "$SLUG" "client_label=${CLIENT_LABEL} central=${CENTRAL_INGEST_DOMAIN}"

@@ -49,7 +49,7 @@ chmod 600 "$ENV_FILE"
 sp::docker::ensure_network rede_publica
 # shellcheck disable=SC1090
 set -a; source "$ENV_FILE"; set +a
-docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/n8n.yml" --detach=true "$SLUG"
+docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/n8n.yml" "$SLUG"
 
 sp::ok "n8n implantado. Aguarde ~30s para o certificado SSL e acesse: https://${DOMAIN}"
 sp::log "INSTALL" "$SLUG" "domain=${DOMAIN} data_dir=${DATA_DIR}"

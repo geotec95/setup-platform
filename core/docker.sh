@@ -45,7 +45,11 @@ sp::docker::ensure_network() {
 # Deploy idempotente de uma stack compose. Uso: sp::docker::deploy_stack <nome> <arquivo-compose>
 sp::docker::deploy_stack() {
   local name="$1" compose_file="$2"
-  docker stack deploy -c "$compose_file" --detach=true "$name"
+  # Sem --detach: a flag não existe em builds mais antigos do Docker CLI
+  # (ex: pacote "docker" do Amazon Linux 2/2023, que reporta versão recente
+  # mas empacota um CLI mais velho). Todo Docker moderno já trata stack
+  # deploy como não-interativo por padrão, então omitir a flag é seguro.
+  docker stack deploy -c "$compose_file" "$name"
   sp::ok "Stack '${name}' deployada a partir de ${compose_file}."
 }
 

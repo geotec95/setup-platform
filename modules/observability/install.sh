@@ -96,7 +96,7 @@ chmod 600 "$ENV_FILE"
 sp::docker::ensure_network rede_publica
 # shellcheck disable=SC1090
 set -a; source "$ENV_FILE"; set +a
-docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/observability.yml" --detach=true "$SLUG"
+docker stack deploy -c "${SP_TEMPLATES_DIR}/compose/observability.yml" "$SLUG"
 
 sp::ok "Observabilidade implantada. Aguarde ~30s para o certificado SSL e acesse: https://${DOMAIN}"
 sp::ok "Login do Grafana -> usuário: admin / senha: ${GRAFANA_ADMIN_PASSWORD}"
