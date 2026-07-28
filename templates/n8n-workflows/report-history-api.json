@@ -1,0 +1,101 @@
+{
+  "name": "API: Histórico de Relatórios",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "report-history",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4d5e6f70-0001-4a11-9a11-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-680, 300],
+      "webhookId": "report-history",
+      "notes": "Compartilhado entre todos os clientes -- chamado como /webhook/report-history?workflow_id=X, onde X e o ID do workflow de relatorio mensal DAQUELE cliente (cada cliente tem seu proprio workflow duplicado, ver monthly-client-report.json). workflow_id na URL nao e segredo (nao da acesso a nada sozinho); a API key real do n8n fica só na credencial do node HTTP Request abaixo, nunca exposta ao navegador do cliente."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://n8n.arcuscloud.com.br/api/v1/executions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "workflowId", "value": "={{ $json.query.workflow_id }}" },
+            { "name": "limit", "value": "12" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d5e6f70-0002-4a11-9a11-000000000002",
+      "name": "Buscar Execuções (n8n API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-460, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EUIaVnXJRaxf8kVL",
+          "name": "n8n Self API (X-N8N-API-KEY)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formata a lista de execucoes num formato simples e seguro pro wrapper\n// do cliente consumir -- so data e status, nada de dados internos do n8n.\nconst STATUS_LABELS = {\n  success: 'Enviado',\n  error: 'Falhou',\n  running: 'Gerando...',\n  waiting: 'Na fila',\n};\n\nlet executions = [];\ntry {\n  executions = $input.first().json.data || [];\n} catch (e) {\n  executions = [];\n}\n\nconst items = executions.map(e => {\n  const date = new Date(e.startedAt);\n  return {\n    date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),\n    time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),\n    status: STATUS_LABELS[e.status] || e.status,\n    ok: e.status === 'success',\n  };\n});\n\nreturn [{ json: { items } }];\n"
+      },
+      "id": "4d5e6f70-0003-4a11-9a11-000000000003",
+      "name": "Formatar Histórico",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "4d5e6f70-0004-4a11-9a11-000000000004",
+      "name": "Responder JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-20, 300],
+      "notes": "Access-Control-Allow-Origin: * -- o wrapper do cliente (dominio proprio, ex: wri.arcuscloud.com.br) precisa poder chamar esse webhook via fetch() do navegador (dominio diferente do n8n)."
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Buscar Execuções (n8n API)", "type": "main", "index": 0 }]]
+    },
+    "Buscar Execuções (n8n API)": {
+      "main": [[{ "node": "Formatar Histórico", "type": "main", "index": 0 }]]
+    },
+    "Formatar Histórico": {
+      "main": [[{ "node": "Responder JSON", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "description": "Workflow auxiliar UNICO (nao duplicar por cliente) que expoe /webhook/report-history?workflow_id=X, consultando a API de execucoes do n8n internamente (credencial segura, nunca exposta) e devolvendo so data/status de cada envio -- usado pela aba 'Relatório' do wrapper de cada cliente."
+  },
+  "tags": [
+    { "name": "observability" },
+    { "name": "reporting" }
+  ]
+}

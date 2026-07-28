@@ -355,6 +355,55 @@
         460
       ],
       "notes": "Disponibilidade medida de fora (Uptime Kuma), separada por camada -- monitor_name segue o padrao 'WRI-FRONTEND'/'WRI-BACKEND' criado no Uptime Kuma. Complementa a disponibilidade de infraestrutura (node-exporter) com a visao real do usuario final."
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "report-generate-wri-bioeconomy-backend",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3c4d5e6f-0014-4a11-9a11-000000000014",
+      "name": "Webhook Gerar Agora",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "report-generate-wri-bioeconomy-backend",
+      "position": [
+        -1400,
+        460
+      ],
+      "notes": "Path unico por cliente (duplicado junto com o resto do workflow) -- ver new-client.sh, que gera o slug e monta a URL usada pelo botao 'Gerar relatorio agora' no wrapper."
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "ok",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "3c4d5e6f-0015-4a11-9a11-000000000015",
+      "name": "Responder 200 (Gerar Agora)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1400,
+        620
+      ],
+      "notes": "Responde rapido pro botao do wrapper nao ficar esperando o relatorio inteiro terminar de gerar/enviar -- a resposta HTTP so confirma que o disparo foi aceito."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Troca o nome do arquivo (o Gotenberg retorna um UUID.pdf generico) pelo\n// nome real que o cliente ve no anexo do e-mail.\nconst item = $input.first();\nconst cfg = $('Configuração').first().json;\nconst monthLabel = item.json.month_label || '';\nconst safeClient = cfg.client_name.replace(/[\\\\/:*?\"<>|]/g, '').trim();\nconst fileName = `${safeClient} - ${monthLabel}.pdf`;\nitem.binary.report_pdf.fileName = fileName;\nreturn [item];\n"
+      },
+      "id": "3c4d5e6f-0016-4a11-9a11-000000000016",
+      "name": "Renomear Anexo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ]
     }
   ],
   "connections": {
@@ -472,7 +521,7 @@
       "main": [
         [
           {
-            "node": "Enviar E-mail (com PDF anexo)",
+            "node": "Renomear Anexo",
             "type": "main",
             "index": 0
           }
@@ -484,6 +533,33 @@
         [
           {
             "node": "Montar Relatório HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Gerar Agora": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Responder 200 (Gerar Agora)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Renomear Anexo": {
+      "main": [
+        [
+          {
+            "node": "Enviar E-mail (com PDF anexo)",
             "type": "main",
             "index": 0
           }
