@@ -162,6 +162,33 @@ else
   sp::ok "Organization criada (id=${ORG_ID})."
 fi
 
+# ------------------------------------------------- 1b) Datasources da org
+# Datasource no Grafana é por Organization -- uma org nova nasce SEM
+# nenhum, mesmo com Prometheus/Loki/Tempo já rodando e provisionados na org
+# padrão (id 1). Sem isso os dashboards copiados no passo 3 (que referenciam
+# datasource uid "Prometheus"/"Loki"/"Tempo") ficam sem dado nenhum -- bug
+# real encontrado testando com o primeiro cliente de verdade (WRI). Os uids
+# abaixo têm que bater exatamente com os usados em
+# templates/observability/grafana-datasources.yml.
+sp::info "Garantindo datasources compartilhados na org do cliente..."
+for ds in \
+  'Prometheus|prometheus|http://prometheus:9090|{}' \
+  'Loki|loki|http://loki:3100|{}' \
+  'Tempo|tempo|http://tempo:3200|{}'
+do
+  IFS='|' read -r ds_uid ds_type ds_url ds_jsondata <<< "$ds"
+  EXISTING_DS="$(sp::cd::grafana_admin_api_org "$ORG_ID" GET "/api/datasources/uid/${ds_uid}" || true)"
+  [[ -z "$EXISTING_DS" ]] && EXISTING_DS="{}"
+  if [[ "$(echo "$EXISTING_DS" | jq -r '.uid // empty')" == "$ds_uid" ]]; then
+    continue
+  fi
+  DS_PAYLOAD="$(jq -n --arg uid "$ds_uid" --arg name "$ds_uid" --arg type "$ds_type" --arg url "$ds_url" --argjson jsonData "$ds_jsondata" \
+    '{uid:$uid, name:$name, type:$type, url:$url, access:"proxy", jsonData:$jsonData}')"
+  sp::cd::grafana_admin_api_org "$ORG_ID" POST "/api/datasources" "$DS_PAYLOAD" >/dev/null \
+    && sp::ok "Datasource '${ds_uid}' criado na org do cliente." \
+    || sp::warn "Falha ao criar datasource '${ds_uid}' na org do cliente."
+done
+
 # ------------------------------------------------------- 2) Usuário viewer
 VIEWER_LOGIN="cliente-${CLIENT_SLUG}"
 VIEWER_EMAIL="${VIEWER_LOGIN}@dashboards.arcuscloud.com.br"
