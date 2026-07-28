@@ -129,6 +129,9 @@ cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-rules.yml"       "${CO
 {
   echo "DOMAIN=${DOMAIN}"
   echo "INGEST_DOMAIN=${INGEST_DOMAIN}"
+  # Usado por modules/client-dashboard/new-client.sh pra montar as chamadas
+  # de API do Grafana compartilhado (criar org, importar dashboard, etc).
+  echo "GRAFANA_BASE_URL=https://${DOMAIN}"
   echo "GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}"
   echo "INGEST_USER=${INGEST_USER}"
   echo "INGEST_PASSWORD=${INGEST_PASSWORD}"
