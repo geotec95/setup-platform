@@ -46,7 +46,8 @@ if [[ -n "${CLIENT_GRAFANA_ORG_ID:-}" ]]; then
         if [[ -n "${CLIENT_GRAFANA_VIEWER_USER:-}" ]]; then
           LOOKUP_JSON="$(curl -fsS -u "${GRAFANA_ADMIN_USER}:${GRAFANA_ADMIN_PASSWORD}" \
             "${GRAFANA_BASE_URL}/api/users/lookup?loginOrEmail=${CLIENT_GRAFANA_VIEWER_USER}" || true)"
-          VIEWER_USER_ID="$(echo "${LOOKUP_JSON:-{}}" | jq -r '.id // empty')"
+          [[ -z "$LOOKUP_JSON" ]] && LOOKUP_JSON="{}"
+          VIEWER_USER_ID="$(echo "$LOOKUP_JSON" | jq -r '.id // empty')"
           if [[ -n "$VIEWER_USER_ID" ]]; then
             curl -fsS -u "${GRAFANA_ADMIN_USER}:${GRAFANA_ADMIN_PASSWORD}" \
               -X DELETE "${GRAFANA_BASE_URL}/api/admin/users/${VIEWER_USER_ID}" \

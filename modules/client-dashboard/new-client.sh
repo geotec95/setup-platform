@@ -146,7 +146,12 @@ ORG_NAME="Cliente: ${CLIENT_NAME}"
 
 sp::info "Verificando se já existe Organization '${ORG_NAME}' no Grafana..."
 EXISTING_ORG_JSON="$(sp::cd::grafana_admin_api GET "/api/orgs/name/$(jq -rn --arg n "$ORG_NAME" '$n|@uri')" || true)"
-ORG_ID="$(echo "${EXISTING_ORG_JSON:-{}}" | jq -r '.id // empty')"
+# NUNCA use "${VAR:-{}}" -- chaves aninhadas dentro do valor padrão do
+# parameter expansion confundem o parser do bash e vazam um "}" extra no
+# fim da string quando VAR já está setado, quebrando o JSON pro jq (bug
+# real encontrado e corrigido em produção, ver git log).
+[[ -z "$EXISTING_ORG_JSON" ]] && EXISTING_ORG_JSON="{}"
+ORG_ID="$(echo "$EXISTING_ORG_JSON" | jq -r '.id // empty')"
 
 if [[ -n "$ORG_ID" ]]; then
   sp::ok "Organization já existe (id=${ORG_ID}). Reaproveitando (idempotente)."
@@ -163,7 +168,8 @@ VIEWER_EMAIL="${VIEWER_LOGIN}@dashboards.arcuscloud.com.br"
 
 sp::info "Verificando se o usuário '${VIEWER_LOGIN}' já existe..."
 LOOKUP_JSON="$(sp::cd::grafana_admin_api GET "/api/users/lookup?loginOrEmail=${VIEWER_LOGIN}" || true)"
-VIEWER_USER_ID="$(echo "${LOOKUP_JSON:-{}}" | jq -r '.id // empty')"
+[[ -z "$LOOKUP_JSON" ]] && LOOKUP_JSON="{}"
+VIEWER_USER_ID="$(echo "$LOOKUP_JSON" | jq -r '.id // empty')"
 
 # Reaproveita a senha se o cliente já tiver .env (idempotência real: não gera
 # senha nova a cada execução, senão invalidaria acessos já distribuídos).
@@ -254,7 +260,16 @@ for uid in "${PUBLISHABLE_DASHBOARD_UIDS[@]}"; do
   PUBLIC_RESULT="$(sp::cd::grafana_admin_api_org "$ORG_ID" POST \
     "/api/dashboards/uid/${NEW_UID}/public-dashboards" \
     '{"isEnabled": true, "share": "public"}' || true)"
-  PUBLIC_UID="$(echo "${PUBLIC_RESULT:-{}}" | jq -r '.accessToken // .uid // empty')"
+  # Reexecução (--update de um cliente existente): o dashboard é recriado com
+  # uid novo a cada vez (ver "dashboard.uid = null" acima), então normalmente
+  # nunca já está público -- mas se cair aqui mesmo assim, busca via GET em
+  # vez de tratar como falha.
+  if [[ -z "$PUBLIC_RESULT" ]]; then
+    PUBLIC_RESULT="$(sp::cd::grafana_admin_api_org "$ORG_ID" GET \
+      "/api/dashboards/uid/${NEW_UID}/public-dashboards" || true)"
+  fi
+  [[ -z "$PUBLIC_RESULT" ]] && PUBLIC_RESULT="{}"
+  PUBLIC_UID="$(echo "$PUBLIC_RESULT" | jq -r '.accessToken // .uid // empty')"
 
   if [[ -n "$PUBLIC_UID" ]]; then
     PANEL_URLS+=("${GRAFANA_BASE_URL}/public-dashboards/${PUBLIC_UID}")
