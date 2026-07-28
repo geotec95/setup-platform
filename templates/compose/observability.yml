@@ -54,6 +54,13 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/
       - GF_USERS_ALLOW_SIGN_UP=false
+      # Sem isso o Grafana manda X-Frame-Options: deny em toda resposta,
+      # inclusive public-dashboards -- bloqueia o embed via <iframe> nos
+      # wrappers de cliente (module client-dashboard), mesmo sendo um link
+      # público read-only. allow_embedding só afasta esse header; o
+      # isolamento por cliente continua vindo do allowlist + filtro por
+      # "$client" no dashboard, não do X-Frame-Options.
+      - GF_SECURITY_ALLOW_EMBEDDING=true
       - TZ=${TZ}
       # SMTP — usado pelos contact points de alerta (unified alerting).
       # Desligado por padrão se SMTP_HOST não foi configurado no install.sh.
