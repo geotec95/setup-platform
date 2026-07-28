@@ -1,0 +1,23 @@
+version: "3.8"
+
+# Conversor de HTML para PDF, headless (Chromium via API HTTP). Sem painel
+# nem domínio público -- só acessível dentro da rede_publica, usado pelo n8n
+# pra gerar os relatórios mensais de cliente em PDF a partir de HTML.
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    networks:
+      - rede_publica
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  rede_publica:
+    external: true

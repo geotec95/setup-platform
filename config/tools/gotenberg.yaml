@@ -1,0 +1,20 @@
+name: "Gotenberg (HTML -> PDF)"
+slug: gotenberg
+category: infraestrutura
+description: >-
+  Conversor de HTML para PDF (self-hosted, headless Chromium via API HTTP).
+  Sem painel/domínio público — usado internamente pelo n8n (mesma rede
+  Docker) pra gerar os relatórios mensais de cliente em PDF a partir de
+  HTML (ver templates/n8n-workflows/monthly-client-report.json).
+requires:
+  - docker
+ports:
+  - "3000"
+env_required: []
+volumes: []
+install_strategy: docker_compose
+healthcheck:
+  type: http
+  url: "http://localhost:3000/health"
+validate_command: "docker ps --format '{{.Names}}' | grep -q '^gotenberg_gotenberg'"
+uninstall_strategy: docker_compose_down
