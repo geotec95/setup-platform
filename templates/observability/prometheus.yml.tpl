@@ -7,6 +7,13 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# Regras de gravação: normalizam métricas RED de frameworks diferentes
+# (Django, FastAPI, ...) pra um nome único de métrica que os dashboards de
+# cliente consultam sem saber qual framework está por trás (ver
+# prometheus-recording-rules.yml).
+rule_files:
+  - /etc/prometheus/rules/app-red.yml
+
 scrape_configs:
   # Métricas do próprio Prometheus
   - job_name: prometheus

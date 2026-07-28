@@ -98,6 +98,7 @@ chown -R 10001:10001 "${SP_DATA_ROOT}/${SLUG}/tempo"       # grafana/tempo tamb√
 CONF_DIR="${SP_DATA_ROOT}/${SLUG}/config"
 mkdir -p \
   "${CONF_DIR}/prometheus" \
+  "${CONF_DIR}/prometheus/rules" \
   "${CONF_DIR}/loki" \
   "${CONF_DIR}/tempo" \
   "${CONF_DIR}/promtail" \
@@ -109,6 +110,7 @@ mkdir -p \
 chmod -R a+rX "$CONF_DIR"
 
 cp -f "${SP_TEMPLATES_DIR}/observability/prometheus.yml.tpl"              "${CONF_DIR}/prometheus/prometheus.yml"
+cp -f "${SP_TEMPLATES_DIR}/observability/prometheus-recording-rules.yml"  "${CONF_DIR}/prometheus/rules/app-red.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/loki-config.yml"                 "${CONF_DIR}/loki/loki-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/tempo-config.yml"                "${CONF_DIR}/tempo/tempo-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/promtail-config.yml"             "${CONF_DIR}/promtail/promtail-config.yml"

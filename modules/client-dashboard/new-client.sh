@@ -210,6 +210,7 @@ PUBLISHABLE_DASHBOARD_UIDS=("remote-clients")
 
 sp::info "Copiando dashboards padrão (allowlist) para a org do cliente..."
 PANEL_URLS=()
+PANEL_TITLES=()
 
 for uid in "${PUBLISHABLE_DASHBOARD_UIDS[@]}"; do
   DASH_JSON="$(sp::cd::grafana_admin_api_org 1 GET "/api/dashboards/uid/${uid}" || true)"
@@ -246,6 +247,7 @@ for uid in "${PUBLISHABLE_DASHBOARD_UIDS[@]}"; do
 
   if [[ -n "$PUBLIC_UID" ]]; then
     PANEL_URLS+=("${GRAFANA_BASE_URL}/public-dashboards/${PUBLIC_UID}")
+    PANEL_TITLES+=("$DASH_TITLE")
   else
     sp::warn "Não foi possível habilitar public-dashboard para '${DASH_TITLE}' (recurso pode não estar habilitado no Grafana). Pulei o iframe."
   fi
@@ -270,9 +272,18 @@ chmod 600 "${CLIENT_DIR}/.env"
 sp::ok "Credenciais do cliente salvas em ${CLIENT_DIR}/.env"
 
 # ------------------------------------------------------- 5) Gerar wrapper HTML
+# Cada card leva o título real do dashboard (já traduzido/pt-br na origem) e
+# um skeleton de loading que some via onload — iframe do Grafana demora a
+# carregar, tela em branco parece "quebrado" pro cliente (ver skill
+# dashboard-design).
 IFRAMES_HTML=""
-for url in "${PANEL_URLS[@]+"${PANEL_URLS[@]}"}"; do
-  IFRAMES_HTML+="      <div class=\"panel-card\"><iframe src=\"${url}\" loading=\"lazy\"></iframe></div>"$'\n'
+for i in "${!PANEL_URLS[@]}"; do
+  url="${PANEL_URLS[$i]}"
+  title="${PANEL_TITLES[$i]}"
+  IFRAMES_HTML+="      <div class=\"panel-card\">"
+  IFRAMES_HTML+="<div class=\"panel-card-header\"><span class=\"dot\"></span><span class=\"panel-title\">${title}</span></div>"
+  IFRAMES_HTML+="<div class=\"panel-card-body\"><div class=\"skeleton\"></div><iframe src=\"${url}\" loading=\"lazy\" onload=\"this.previousElementSibling.style.display='none'\"></iframe></div>"
+  IFRAMES_HTML+="</div>"$'\n'
 done
 
 DATA_DIR="$(sp::ensure_data_dir "client-dashboard/${CLIENT_SLUG}")"

@@ -1,0 +1,41 @@
+{
+  "id": null,
+  "uid": "client-traces",
+  "title": "Traces",
+  "tags": ["observability", "client-dashboard", "setup-platform"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requisições rastreadas (busque por serviço, nome ou clique numa linha pra ver o caminho completo)",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "Tempo" },
+      "gridPos": { "h": 20, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "tempo", "uid": "Tempo" },
+          "queryType": "traceqlSearch",
+          "query": "{resource.client=\"$client\"}",
+          "limit": 50,
+          "tableType": "traces"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "traceDuration" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "displayName", "value": "Duração" }] },
+          { "matcher": { "id": "byName", "options": "traceService" }, "properties": [{ "id": "displayName", "value": "Serviço" }] },
+          { "matcher": { "id": "byName", "options": "traceName" }, "properties": [{ "id": "displayName", "value": "Operação" }] },
+          { "matcher": { "id": "byName", "options": "startTime" }, "properties": [{ "id": "displayName", "value": "Início" }] },
+          { "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "displayName", "value": "Trace ID" }] }
+        ]
+      }
+    }
+  ]
+}

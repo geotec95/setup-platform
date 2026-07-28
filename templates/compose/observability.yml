@@ -21,6 +21,7 @@ services:
       - "--web.enable-remote-write-receiver"
     volumes:
       - /data/observability/config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /data/observability/config/prometheus/rules:/etc/prometheus/rules:ro
       - /data/observability/prometheus:/prometheus
     networks:
       - rede_publica

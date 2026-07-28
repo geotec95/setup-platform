@@ -1,0 +1,66 @@
+# templates/observability/prometheus-recording-rules.yml
+# Normaliza métricas RED (Rate/Errors/Duration) de frameworks diferentes pra
+# um conjunto ÚNICO de nomes de métrica ("app:http_*"), com os mesmos labels
+# (client, instance, view). Assim os dashboards (Métricas) fazem UMA query
+# só e funcionam pra qualquer aplicação instrumentada, não importa a
+# linguagem/framework por trás.
+#
+# Pra adicionar suporte a um framework novo: crie um novo group abaixo
+# seguindo o mesmo padrão -- 3 regras produzindo exatamente
+# app:http_requests:rate5m / app:http_errors:rate5m /
+# app:http_request_duration_seconds:p95, com os labels client/instance/view.
+# Nenhum dashboard precisa mudar quando um framework novo é adicionado aqui.
+groups:
+  # Django, via django-prometheus (ver templates/n8n-workflows não -- ver
+  # metrics-handoff.html entregue ao dev da WRI Bioeconomia).
+  - name: app-red-django
+    interval: 15s
+    rules:
+      - record: app:http_requests:rate5m
+        expr: >
+          sum by (client, instance, view) (
+            rate(django_http_requests_total_by_view_transport_method_total[5m])
+          )
+
+      - record: app:http_errors:rate5m
+        expr: >
+          sum by (client, instance, view) (
+            rate(django_http_responses_total_by_status_view_method_total{status=~"5.."}[5m])
+          )
+
+      - record: app:http_request_duration_seconds:p95
+        expr: >
+          histogram_quantile(0.95, sum by (client, instance, view, le) (
+            rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])
+          ))
+
+  # FastAPI, via prometheus-fastapi-instrumentator (métricas: http_requests_total,
+  # http_request_duration_seconds_bucket). Ainda sem cliente rodando FastAPI --
+  # regra deixada pronta pro dia que precisar, seguindo o mesmo padrão de nomes.
+  # label_replace copia "handler" pra "view" -- todo dashboard consulta só
+  # "view", nunca o nome de label original de cada framework.
+  - name: app-red-fastapi
+    interval: 15s
+    rules:
+      - record: app:http_requests:rate5m
+        expr: >
+          label_replace(
+            sum by (client, instance, handler) (rate(http_requests_total[5m])),
+            "view", "$1", "handler", "(.*)"
+          )
+
+      - record: app:http_errors:rate5m
+        expr: >
+          label_replace(
+            sum by (client, instance, handler) (rate(http_requests_total{status=~"5.."}[5m])),
+            "view", "$1", "handler", "(.*)"
+          )
+
+      - record: app:http_request_duration_seconds:p95
+        expr: >
+          label_replace(
+            histogram_quantile(0.95, sum by (client, instance, handler, le) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )),
+            "view", "$1", "handler", "(.*)"
+          )
