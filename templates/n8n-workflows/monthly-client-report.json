@@ -5,7 +5,10 @@
       "parameters": {
         "rule": {
           "interval": [
-            { "field": "cronExpression", "expression": "0 8 1 * *" }
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
           ]
         }
       },
@@ -13,18 +16,51 @@
       "name": "Todo dia 1, 08:00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1400, 300]
+      "position": [
+        -1400,
+        300
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "1", "name": "client_slug", "type": "string", "value": "PLACEHOLDER_CLIENT_SLUG" },
-            { "id": "2", "name": "client_name", "type": "string", "value": "PLACEHOLDER_CLIENT_NAME" },
-            { "id": "3", "name": "client_email_to", "type": "string", "value": "PLACEHOLDER_CLIENT_EMAIL" },
-            { "id": "4", "name": "client_logo_url", "type": "string", "value": "PLACEHOLDER_CLIENT_LOGO_URL" },
-            { "id": "5", "name": "client_primary_color", "type": "string", "value": "#0EA5E9" },
-            { "id": "6", "name": "period_days", "type": "string", "value": "30" }
+            {
+              "id": "1",
+              "name": "client_slug",
+              "type": "string",
+              "value": "PLACEHOLDER_CLIENT_SLUG"
+            },
+            {
+              "id": "2",
+              "name": "client_name",
+              "type": "string",
+              "value": "PLACEHOLDER_CLIENT_NAME"
+            },
+            {
+              "id": "3",
+              "name": "client_email_to",
+              "type": "string",
+              "value": "PLACEHOLDER_CLIENT_EMAIL"
+            },
+            {
+              "id": "4",
+              "name": "client_logo_url",
+              "type": "string",
+              "value": "PLACEHOLDER_CLIENT_LOGO_URL"
+            },
+            {
+              "id": "5",
+              "name": "client_primary_color",
+              "type": "string",
+              "value": "#0EA5E9"
+            },
+            {
+              "id": "6",
+              "name": "period_days",
+              "type": "string",
+              "value": "30"
+            }
           ]
         },
         "options": {}
@@ -33,7 +69,10 @@
       "name": "Configuração",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1180, 300],
+      "position": [
+        -1180,
+        300
+      ],
       "notes": "Edite os valores aqui: slug do cliente (o mesmo usado no remote-agent/client-dashboard), nome, e-mail de destino, logo e cor. Duplique este workflow por cliente."
     },
     {
@@ -43,7 +82,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "query", "value": "=avg_over_time(up{client=\"{{ $json.client_slug }}\", job=\"node-exporter\"}[{{ $json.period_days }}d]) * 100" }
+            {
+              "name": "query",
+              "value": "=avg_over_time(up{client=\"{{ $json.client_slug }}\", job=\"node-exporter\"}[{{ $json.period_days }}d]) * 100"
+            }
           ]
         },
         "options": {}
@@ -52,7 +94,10 @@
       "name": "Uptime",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-960, 300]
+      "position": [
+        -960,
+        300
+      ]
     },
     {
       "parameters": {
@@ -61,7 +106,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "query", "value": "=sum(increase(django_http_requests_total_by_view_transport_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d]))" }
+            {
+              "name": "query",
+              "value": "=sum(increase(django_http_requests_total_by_view_transport_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d]))"
+            }
           ]
         },
         "options": {}
@@ -70,7 +118,10 @@
       "name": "Requisições totais",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-740, 300]
+      "position": [
+        -740,
+        300
+      ]
     },
     {
       "parameters": {
@@ -79,7 +130,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "query", "value": "=sum(increase(django_http_responses_total_by_status_view_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\", status=~\"5..\"}[{{ $('Configuração').first().json.period_days }}d]))" }
+            {
+              "name": "query",
+              "value": "=sum(increase(django_http_responses_total_by_status_view_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\", status=~\"5..\"}[{{ $('Configuração').first().json.period_days }}d]))"
+            }
           ]
         },
         "options": {}
@@ -88,7 +142,10 @@
       "name": "Erros 5xx totais",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-520, 300]
+      "position": [
+        -520,
+        300
+      ]
     },
     {
       "parameters": {
@@ -97,7 +154,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "query", "value": "=histogram_quantile(0.95, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d])))" }
+            {
+              "name": "query",
+              "value": "=histogram_quantile(0.95, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d])))"
+            }
           ]
         },
         "options": {}
@@ -106,7 +166,10 @@
       "name": "Latência p95 média",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-300, 300]
+      "position": [
+        -300,
+        300
+      ]
     },
     {
       "parameters": {
@@ -115,7 +178,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "query", "value": "=sum(count_over_time({client=\"{{ $('Configuração').first().json.client_slug }}\", level=\"error\"}[{{ $('Configuração').first().json.period_days }}d]))" }
+            {
+              "name": "query",
+              "value": "=sum(count_over_time({client=\"{{ $('Configuração').first().json.client_slug }}\", level=\"error\"}[{{ $('Configuração').first().json.period_days }}d]))"
+            }
           ]
         },
         "options": {}
@@ -124,7 +190,10 @@
       "name": "Linhas de log de erro",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-80, 300]
+      "position": [
+        -80,
+        300
+      ]
     },
     {
       "parameters": {
@@ -133,7 +202,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "query", "value": "=topk(3, sum by (view) (increase(django_http_requests_total_by_view_transport_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d])))" }
+            {
+              "name": "query",
+              "value": "=topk(3, sum by (view) (increase(django_http_requests_total_by_view_transport_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\", view!~\"health|prometheus-django-metrics|token_obtain_pair|token_refresh|auth_user|users-all|users-list\"}[{{ $('Configuração').first().json.period_days }}d])))"
+            }
           ]
         },
         "options": {}
@@ -142,18 +214,24 @@
       "name": "Top 3 endpoints",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [140, 300],
-      "notes": "Encadeado em sequencia (nao em paralelo) com as outras consultas -- se todas fossem ligadas direto no mesmo no seguinte, o n8n dispara o no seguinte uma vez POR RAMO que chega, nao uma vez so com tudo pronto (foi o bug dos '5 e-mails parciais')."
+      "position": [
+        140,
+        300
+      ],
+      "notes": "Encadeado em sequencia (nao em paralelo) com as outras consultas -- se todas fossem ligadas direto no mesmo no seguinte, o n8n dispara o no seguinte uma vez POR RAMO que chega, nao uma vez so com tudo pronto (foi o bug dos '5 e-mails parciais'). O filtro view!~ exclui endpoints do PROPRIO agente de monitoramento (health-check, scrape do Prometheus, refresh de token) -- sem isso o relatorio mostrava uso do agente como se fosse uso real da aplicacao pelo cliente."
     },
     {
       "parameters": {
-        "jsCode": "// Junta os resultados de todas as consultas (Prometheus + Loki) num só\n// objeto e monta o relatório executivo em HTML (depois convertido pra PDF\n// pelo node Gotenberg). Todas as consultas rodam em CADEIA (uma depois da\n// outra), não em paralelo -- é o que garante que este node só executa UMA\n// vez, com todos os dados já prontos (antes disparava 1x por consulta que\n// chegava, gerando e-mails parciais).\nfunction firstValue(nodeName) {\n  try {\n    const result = $(nodeName).first().json.data.result;\n    if (!result || !result.length) return null;\n    return parseFloat(result[0].value[1]);\n  } catch (e) {\n    return null;\n  }\n}\n\nfunction topEndpoints(nodeName) {\n  try {\n    const result = $(nodeName).first().json.data.result;\n    if (!result || !result.length) return [];\n    return result\n      .map(r => ({ view: r.metric.view || '(sem nome)', count: parseFloat(r.value[1]) }))\n      .sort((a, b) => b.count - a.count);\n  } catch (e) {\n    return [];\n  }\n}\n\nconst cfg = $('Configuração').first().json;\n\nconst uptime = firstValue('Uptime');\nconst totalRequests = firstValue('Requisições totais');\nconst totalErrors = firstValue('Erros 5xx totais');\nconst p95 = firstValue('Latência p95 média');\nconst errorLogLines = firstValue('Linhas de log de erro');\nconst topEnds = topEndpoints('Top 3 endpoints');\n\nconst fmtInt = (v) => (v === null || Number.isNaN(v)) ? '-' : Math.round(v).toLocaleString('pt-BR');\nconst fmtPct = (v) => (v === null || Number.isNaN(v)) ? '-' : v.toFixed(2).replace('.', ',') + '%';\nconst fmtMs = (v) => (v === null || Number.isNaN(v)) ? '-' : Math.round(v * 1000).toLocaleString('pt-BR') + ' ms';\n\nconst errorRate = (totalRequests && totalErrors !== null && totalRequests > 0)\n  ? (totalErrors / totalRequests) * 100\n  : 0;\n\nconst now = new Date();\nconst firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);\nconst lastDay = new Date(now.getFullYear(), now.getMonth(), 0);\nconst monthLabel = firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });\nconst periodLabel = `${firstDay.getDate()} a ${lastDay.getDate()} de ${firstDay.toLocaleDateString('pt-BR', { month: 'long' })} de ${firstDay.getFullYear()}`;\n\nconst accent = cfg.client_primary_color || '#0EA5E9';\nconst uptimeOk = uptime === null || uptime >= 99.5;\nconst errorsOk = errorRate < 1;\n\nconst topEndpointsRows = topEnds.length\n  ? topEnds.map((e, i) => `\n    <tr>\n      <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;\">${i + 1}º</td>\n      <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#111827;\">${e.view}</td>\n      <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827;text-align:right;\">${fmtInt(e.count)} acessos</td>\n    </tr>`).join('')\n  : `<tr><td colspan=\"3\" style=\"padding:10px 12px;color:#6b7280;font-size:13px;\">Sem dados suficientes neste período.</td></tr>`;\n\nconst topEndpointName = topEnds.length ? topEnds[0].view : 'nenhum em destaque';\nconst topEndpointCount = topEnds.length ? fmtInt(topEnds[0].count) : '-';\n\nconst summary = `Durante o período de ${periodLabel}, a aplicação de <strong>${cfg.client_name}</strong> processou <strong>${fmtInt(totalRequests)} requisições</strong>, `\n  + `com <strong>${fmtPct(uptime)} de disponibilidade</strong>`\n  + (errorsOk ? ' e sem nenhum problema técnico relevante registrado.' : `, e uma taxa de erros de ${fmtPct(errorRate)} que merece atenção.`)\n  + ` O recurso mais utilizado no período foi <strong>${topEndpointName}</strong>, com ${topEndpointCount} acessos.`;\n\nconst html = `<!doctype html>\n<html lang=\"pt-br\">\n<head>\n<meta charset=\"utf-8\">\n<style>\n  * { box-sizing: border-box; }\n  body {\n    margin: 0;\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;\n    color: #111827;\n    background: #ffffff;\n    font-size: 14px;\n    line-height: 1.6;\n  }\n  .page { padding: 48px 56px; max-width: 800px; margin: 0 auto; }\n  .header {\n    display: flex; align-items: center; gap: 16px;\n    padding-bottom: 24px; margin-bottom: 32px;\n    border-bottom: 3px solid ${accent};\n  }\n  .header img { height: 40px; width: auto; }\n  .header .title { font-size: 20px; font-weight: 700; color: #111827; }\n  .header .subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; text-transform: capitalize; }\n  .summary {\n    background: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid ${accent};\n    border-radius: 6px; padding: 20px 24px; margin-bottom: 32px; font-size: 14.5px; color: #1f2937;\n  }\n  .summary .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${accent}; margin-bottom: 8px; }\n  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }\n  .metric-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px 20px; }\n  .metric-card .label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b7280; }\n  .metric-card .value { font-size: 28px; font-weight: 700; color: #111827; margin: 6px 0 8px; }\n  .metric-card .explain { font-size: 12.5px; color: #6b7280; }\n  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: middle; }\n  .badge.ok { background: #dcfce7; color: #166534; }\n  .badge.warn { background: #fef3c7; color: #92400e; }\n  .section-title { font-size: 15px; font-weight: 700; margin: 32px 0 12px; color: #111827; }\n  table { width: 100%; border-collapse: collapse; }\n  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; padding: 8px 12px; border-bottom: 2px solid #e5e7eb; }\n  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; }\n</style>\n</head>\n<body>\n<div class=\"page\">\n\n  <div class=\"header\">\n    <img src=\"${cfg.client_logo_url}\" alt=\"${cfg.client_name}\">\n    <div>\n      <div class=\"title\">${cfg.client_name}</div>\n      <div class=\"subtitle\">Relatório mensal de performance &mdash; ${monthLabel}</div>\n    </div>\n  </div>\n\n  <div class=\"summary\">\n    <div class=\"eyebrow\">Resumo executivo</div>\n    ${summary}\n  </div>\n\n  <div class=\"metrics-grid\">\n    <div class=\"metric-card\">\n      <div class=\"label\">Disponibilidade${uptimeOk ? '<span class=\"badge ok\">saudável</span>' : '<span class=\"badge warn\">atenção</span>'}</div>\n      <div class=\"value\">${fmtPct(uptime)}</div>\n      <div class=\"explain\">Percentual do tempo em que a aplicação ficou no ar e respondendo normalmente. 100% significa nenhuma interrupção detectada no período.</div>\n    </div>\n    <div class=\"metric-card\">\n      <div class=\"label\">Volume de uso</div>\n      <div class=\"value\">${fmtInt(totalRequests)}</div>\n      <div class=\"explain\">Total de requisições (acessos) recebidas pela aplicação no período &mdash; um indicador direto de quanto a ferramenta foi usada.</div>\n    </div>\n    <div class=\"metric-card\">\n      <div class=\"label\">Taxa de erros${errorsOk ? '<span class=\"badge ok\">saudável</span>' : '<span class=\"badge warn\">atenção</span>'}</div>\n      <div class=\"value\">${fmtPct(errorRate)}</div>\n      <div class=\"explain\">Percentual de requisições que resultaram em falha técnica no servidor. Quanto mais perto de 0%, melhor.</div>\n    </div>\n    <div class=\"metric-card\">\n      <div class=\"label\">Tempo de resposta</div>\n      <div class=\"value\">${fmtMs(p95)}</div>\n      <div class=\"explain\">Tempo médio que a aplicação leva pra responder a uma solicitação. Valores baixos indicam boa performance percebida pelo usuário.</div>\n    </div>\n  </div>\n\n  <div class=\"section-title\">Recursos mais utilizados no período</div>\n  <table>\n    <thead><tr><th>#</th><th>Recurso</th><th style=\"text-align:right;\">Uso</th></tr></thead>\n    <tbody>${topEndpointsRows}</tbody>\n  </table>\n\n  <div class=\"section-title\">Outros indicadores</div>\n  <table>\n    <tbody>\n      <tr><td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;\">Linhas de log de erro registradas</td><td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;\">${fmtInt(errorLogLines)}</td></tr>\n    </tbody>\n  </table>\n\n  <div class=\"footer\">\n    <span>Relatório gerado automaticamente por Arcus Cloud Security</span>\n    <span>${periodLabel}</span>\n  </div>\n\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    subject: `Relatório mensal — ${cfg.client_name} — ${monthLabel}`,\n    html,\n    to: cfg.client_email_to,\n    month_label: monthLabel,\n  }\n}];\n"
+        "jsCode": "// Junta os resultados de todas as consultas (Prometheus + Loki) num só\n// objeto e monta o relatório executivo em HTML (depois convertido pra PDF\n// pelo node Gotenberg). Todas as consultas rodam em CADEIA (uma depois da\n// outra), não em paralelo -- é o que garante que este node só executa UMA\n// vez, com todos os dados já prontos.\nfunction firstValue(nodeName) {\n  try {\n    const result = $(nodeName).first().json.data.result;\n    if (!result || !result.length) return null;\n    return parseFloat(result[0].value[1]);\n  } catch (e) {\n    return null;\n  }\n}\n\nfunction topEndpoints(nodeName) {\n  try {\n    const result = $(nodeName).first().json.data.result;\n    if (!result || !result.length) return [];\n    return result\n      .map(r => ({ view: r.metric.view || '(sem nome)', count: parseFloat(r.value[1]) }))\n      .sort((a, b) => b.count - a.count);\n  } catch (e) {\n    return [];\n  }\n}\n\n// Nomes técnicos de endpoint viram rótulos legíveis pro cliente\n// não-técnico. Lista pequena e explícita -- crescer conforme necessário,\n// não vale a pena tentar \"adivinhar\" isso genericamente.\nconst FRIENDLY_NAMES = {\n  'product-list': 'Catálogo de produtos',\n  'product-summary': 'Resumo de produtos',\n  'product-total': 'Totais de produtos',\n  'public-publications-list': 'Lista de publicações',\n  'public-publications-detail': 'Detalhe de publicação',\n  'publications-aggregate': 'Indicadores de publicações',\n  'policy-proposal-list': 'Propostas de política',\n};\nconst friendlyName = (view) => FRIENDLY_NAMES[view] || view;\n\nconst cfg = $('Configuração').first().json;\n\nconst uptime = firstValue('Uptime');\nconst totalRequests = firstValue('Requisições totais');\nconst totalErrors = firstValue('Erros 5xx totais');\nconst p95 = firstValue('Latência p95 média');\nconst errorLogLines = firstValue('Linhas de log de erro');\nconst topEnds = topEndpoints('Top 3 endpoints');\n\nconst fmtInt = (v) => (v === null || Number.isNaN(v)) ? '—' : Math.round(v).toLocaleString('pt-BR');\nconst fmtPct = (v) => (v === null || Number.isNaN(v)) ? '—' : v.toFixed(2).replace('.', ',') + '%';\nconst fmtMs = (v) => (v === null || Number.isNaN(v)) ? '—' : Math.round(v * 1000).toLocaleString('pt-BR') + ' ms';\n\nconst errorRate = (totalRequests && totalErrors !== null && totalRequests > 0)\n  ? (totalErrors / totalRequests) * 100\n  : 0;\n\nconst now = new Date();\nconst firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);\nconst lastDay = new Date(now.getFullYear(), now.getMonth(), 0);\nconst monthName = firstDay.toLocaleDateString('pt-BR', { month: 'long' });\nconst monthLabel = `${monthName} de ${firstDay.getFullYear()}`;\nconst monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);\nconst periodLabel = `${firstDay.getDate()} a ${lastDay.getDate()} de ${monthName} de ${firstDay.getFullYear()}`;\n\nconst accent = cfg.client_primary_color || '#0EA5E9';\nconst uptimeOk = uptime === null || uptime >= 99.5;\nconst errorsOk = errorRate < 1;\nconst allGood = uptimeOk && errorsOk;\n\n// --- Resumo executivo humanizado (não é um parágrafo robótico de template) ---\nlet openingLine;\nif (allGood) {\n  openingLine = `${monthNameCapFirst(monthName)} foi um mês tranquilo pra plataforma da ${cfg.client_name}.`;\n} else if (!uptimeOk && errorsOk) {\n  openingLine = `${monthNameCapFirst(monthName)} teve uma ou mais interrupções que vale a pena olhar com atenção.`;\n} else if (uptimeOk && !errorsOk) {\n  openingLine = `${monthNameCapFirst(monthName)} ficou no ar o tempo todo, mas registrou mais erros do que o esperado.`;\n} else {\n  openingLine = `${monthNameCapFirst(monthName)} teve alguns percalços que merecem atenção da equipe técnica.`;\n}\nfunction monthNameCapFirst(m) { return m.charAt(0).toUpperCase() + m.slice(1); }\n\nconst volumeLine = totalRequests\n  ? `A aplicação respondeu a <strong>${fmtInt(totalRequests)} solicitações</strong> ao longo do mês${uptimeOk ? ', sem uma única interrupção registrada' : ''}.`\n  : `Não foi possível medir o volume de uso neste período.`;\n\nconst topLine = topEnds.length\n  ? `O recurso mais procurado pelos usuários foi <strong>${friendlyName(topEnds[0].view)}</strong>, com ${fmtInt(topEnds[0].count)} acessos no período.`\n  : '';\n\nconst closingLine = allGood\n  ? `Nenhuma ação é necessária da parte de vocês — está tudo funcionando como esperado.`\n  : `Nossa equipe já está de olho nisso; qualquer novidade, avisamos antes mesmo deste relatório.`;\n\nconst summaryHtml = `${openingLine} ${volumeLine} ${topLine} ${closingLine}`;\n\n// --- Gráfico de barras (SVG) dos recursos mais usados, sem infra/monitoramento ---\nconst maxCount = topEnds.length ? Math.max(...topEnds.map(e => e.count)) : 1;\nconst barRows = topEnds.length\n  ? topEnds.map((e) => {\n      const pct = Math.max(4, Math.round((e.count / maxCount) * 100));\n      return `\n      <div style=\"margin-bottom:9px;\">\n        <div style=\"display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink);margin-bottom:4px;\">\n          <span style=\"font-weight:600;\">${friendlyName(e.view)}</span>\n          <span style=\"color:var(--muted);font-variant-numeric:tabular-nums;\">${fmtInt(e.count)}</span>\n        </div>\n        <div style=\"background:var(--line);border-radius:5px;height:9px;overflow:hidden;\">\n          <div style=\"width:${pct}%;height:100%;background:var(--accent);border-radius:5px;\"></div>\n        </div>\n      </div>`;\n    }).join('')\n  : `<p style=\"color:var(--muted);font-size:13px;\">Ainda não há uso suficiente pra destacar um recurso específico este mês.</p>`;\n\n// --- Ícones inline (monocromáticos, herdam a cor via currentColor) ---\nconst ICONS = {\n  uptime: '<path d=\"M3 12h4l2-7 4 14 2-7h6\" stroke=\"currentColor\" stroke-width=\"1.8\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>',\n  volume: '<path d=\"M4 20V10M10 20V4M16 20v-7M22 20v-3\" stroke=\"currentColor\" stroke-width=\"1.8\" fill=\"none\" stroke-linecap=\"round\"/>',\n  errors: '<path d=\"M12 3l8 4v5c0 5-3.4 8.4-8 9.5C7.4 20.4 4 17 4 12V7l8-4z\" stroke=\"currentColor\" stroke-width=\"1.7\" fill=\"none\" stroke-linejoin=\"round\"/><path d=\"M9 12l2 2 4-4.5\" stroke=\"currentColor\" stroke-width=\"1.7\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>',\n  speed: '<circle cx=\"12\" cy=\"13\" r=\"8\" stroke=\"currentColor\" stroke-width=\"1.7\" fill=\"none\"/><path d=\"M12 13l4-4M12 6v1.5\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/>',\n};\nconst icon = (name) => `<svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\">${ICONS[name]}</svg>`;\n\nconst html = `<!doctype html>\n<html lang=\"pt-br\">\n<head>\n<meta charset=\"utf-8\">\n<style>\n  :root {\n    --ink: #172420;\n    --paper: #F7F5EE;\n    --paper-raised: #FFFFFF;\n    --line: #E1DDCE;\n    --muted: #6E7568;\n    --accent: ${accent};\n  }\n  * { box-sizing: border-box; }\n  body {\n    margin: 0; background: var(--paper); color: var(--ink);\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;\n    font-size: 14px; line-height: 1.65;\n  }\n  .serif { font-family: ui-serif, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif; }\n  .mono { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace; }\n  .page { max-width: 760px; margin: 0 auto; }\n  .hero {\n    padding: 22px 48px 16px;\n    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--paper)) 0%, var(--paper) 100%);\n    border-bottom: 1px solid var(--line);\n  }\n  .hero-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }\n  .hero-top img { height: 34px; width: auto; }\n  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }\n  .hero h1 { font-size: 30px; font-weight: 500; margin: 6px 0 4px; letter-spacing: -0.01em; }\n  .hero .period { color: var(--muted); font-size: 13px; }\n  .content { padding: 16px 48px 8px; }\n  .pullquote {\n    font-family: ui-serif, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;\n    font-style: italic; font-size: 16.5px; line-height: 1.5; color: var(--ink);\n    padding-left: 18px; border-left: 3px solid var(--accent); margin: 0 0 16px;\n  }\n  .pullquote strong { font-style: normal; font-weight: 600; }\n  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }\n  .kpi {\n    background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px;\n    padding: 13px 13px;\n  }\n  .kpi .icon { color: var(--accent); margin-bottom: 10px; }\n  .kpi .label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }\n  .kpi .value { font-family: ui-serif, Georgia, serif; font-size: 24px; font-weight: 600; margin: 5px 0 2px; }\n  .kpi .status { font-size: 10.5px; font-weight: 600; }\n  .kpi .status.ok { color: #2f7a4f; }\n  .kpi .status.warn { color: #b8790a; }\n  .section-title { font-family: ui-serif, Georgia, serif; font-size: 15.5px; font-weight: 600; margin: 0 0 3px; }\n  .section-sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }\n  .divider { height: 1px; background: var(--line); margin: 14px 0; }\n  .footer {\n    padding: 10px 48px 16px; display: flex; justify-content: space-between;\n    align-items: center; font-size: 11px; color: var(--muted);\n  }\n  .footer .brand { font-weight: 600; color: var(--ink); }\n</style>\n</head>\n<body>\n<div class=\"page\">\n\n  <div class=\"hero\">\n    <div class=\"hero-top\">\n      <img src=\"${cfg.client_logo_url}\" alt=\"${cfg.client_name}\">\n      <div style=\"text-align:right;\">\n        <div class=\"eyebrow mono\">Relatório mensal</div>\n        <div class=\"period\">${periodLabel}</div>\n      </div>\n    </div>\n    <h1 class=\"serif\">${cfg.client_name}</h1>\n    <div class=\"period\">Panorama de performance e disponibilidade &mdash; ${monthLabelCap}</div>\n  </div>\n\n  <div class=\"content\">\n\n    <p class=\"pullquote\">${summaryHtml}</p>\n\n    <div class=\"kpi-grid\">\n      <div class=\"kpi\">\n        <div class=\"icon\">${icon('uptime')}</div>\n        <div class=\"label\">Disponibilidade</div>\n        <div class=\"value\">${fmtPct(uptime)}</div>\n        <div class=\"status ${uptimeOk ? 'ok' : 'warn'}\">${uptimeOk ? 'Saudável' : 'Atenção'}</div>\n      </div>\n      <div class=\"kpi\">\n        <div class=\"icon\">${icon('volume')}</div>\n        <div class=\"label\">Solicitações</div>\n        <div class=\"value\">${fmtInt(totalRequests)}</div>\n        <div class=\"status\" style=\"color:var(--muted);\">no mês</div>\n      </div>\n      <div class=\"kpi\">\n        <div class=\"icon\">${icon('errors')}</div>\n        <div class=\"label\">Taxa de erros</div>\n        <div class=\"value\">${fmtPct(errorRate)}</div>\n        <div class=\"status ${errorsOk ? 'ok' : 'warn'}\">${errorsOk ? 'Saudável' : 'Atenção'}</div>\n      </div>\n      <div class=\"kpi\">\n        <div class=\"icon\">${icon('speed')}</div>\n        <div class=\"label\">Resposta</div>\n        <div class=\"value\">${fmtMs(p95)}</div>\n        <div class=\"status\" style=\"color:var(--muted);\">tempo médio</div>\n      </div>\n    </div>\n\n    <div class=\"section-title serif\">O que os usuários mais acessaram</div>\n    <div class=\"section-sub\">Recursos com mais uso real da plataforma no período &mdash; painéis internos de monitoramento não entram nessa conta.</div>\n    ${barRows}\n\n    <div class=\"divider\"></div>\n\n    <div class=\"section-title serif\">O que cada número significa</div>\n    <div class=\"section-sub\" style=\"margin-bottom:0;\"></div>\n    <table style=\"width:100%;border-collapse:collapse;font-size:12.5px;color:var(--muted);margin-top:12px;\">\n      <tr><td style=\"padding:6px 0;width:140px;font-weight:600;color:var(--ink);vertical-align:top;\">Disponibilidade</td><td style=\"padding:6px 0;\">Quanto tempo a plataforma ficou no ar e respondendo. 100% é o ideal &mdash; qualquer queda vem de uma instabilidade real, não de manutenção programada.</td></tr>\n      <tr><td style=\"padding:6px 0;font-weight:600;color:var(--ink);vertical-align:top;\">Solicitações</td><td style=\"padding:6px 0;\">Total de vezes que alguém (pessoa ou sistema) acessou a plataforma no mês &mdash; o termômetro mais direto de uso.</td></tr>\n      <tr><td style=\"padding:6px 0;font-weight:600;color:var(--ink);vertical-align:top;\">Taxa de erros</td><td style=\"padding:6px 0;\">De cada 100 acessos, quantos travaram por falha técnica. Perto de zero é o esperado; acima disso, algo precisa de atenção.</td></tr>\n      <tr><td style=\"padding:6px 0;font-weight:600;color:var(--ink);vertical-align:top;\">Tempo de resposta</td><td style=\"padding:6px 0;\">Quanto tempo a plataforma demora pra responder, em média. Poucos milissegundos é rápido o bastante pra passar despercebido.</td></tr>\n    </table>\n\n  </div>\n\n  <div class=\"footer\">\n    <span>Linhas de log de erro no período: <strong style=\"color:var(--ink);\">${fmtInt(errorLogLines)}</strong></span>\n    <span class=\"brand mono\">Arcus Cloud Security</span>\n  </div>\n\n</div>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    subject: `Relatório mensal — ${cfg.client_name} — ${monthLabelCap}`,\n    html,\n    to: cfg.client_email_to,\n    month_label: monthLabelCap,\n  }\n}];\n"
       },
       "id": "3c4d5e6f-0008-4a11-9a11-000000000008",
       "name": "Montar Relatório HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 300]
+      "position": [
+        360,
+        300
+      ]
     },
     {
       "parameters": {
@@ -163,16 +241,55 @@
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "parameterType": "formBinaryData", "name": "files", "inputDataFieldName": "report_html" }
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "report_html"
+            },
+            {
+              "parameterType": "formData",
+              "name": "marginTop",
+              "value": "0.2"
+            },
+            {
+              "parameterType": "formData",
+              "name": "marginBottom",
+              "value": "0.2"
+            },
+            {
+              "parameterType": "formData",
+              "name": "marginLeft",
+              "value": "0"
+            },
+            {
+              "parameterType": "formData",
+              "name": "marginRight",
+              "value": "0"
+            },
+            {
+              "parameterType": "formData",
+              "name": "printBackground",
+              "value": "true"
+            }
           ]
         },
-        "options": { "response": { "response": { "responseFormat": "file", "outputPropertyName": "report_pdf" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "report_pdf"
+            }
+          }
+        }
       },
       "id": "3c4d5e6f-0011-4a11-9a11-000000000011",
       "name": "Converter em PDF (Gotenberg)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [580, 300],
+      "position": [
+        580,
+        300
+      ],
       "notes": "Gotenberg espera o arquivo principal com nome exato 'index.html' dentro do multipart -- ver node anterior, que grava o binário já com esse nome via Code node auxiliar."
     },
     {
@@ -183,7 +300,10 @@
       "name": "Preparar HTML binário",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 460]
+      "position": [
+        360,
+        460
+      ]
     },
     {
       "parameters": {
@@ -200,7 +320,10 @@
       "name": "Enviar E-mail (com PDF anexo)",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [800, 300],
+      "position": [
+        800,
+        300
+      ],
       "credentials": {
         "smtp": {
           "id": "VWpImzjI4gfOTKt8",
@@ -211,37 +334,125 @@
   ],
   "connections": {
     "Todo dia 1, 08:00": {
-      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Configuração": {
-      "main": [[{ "node": "Uptime", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Uptime",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Uptime": {
-      "main": [[{ "node": "Requisições totais", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Requisições totais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Requisições totais": {
-      "main": [[{ "node": "Erros 5xx totais", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Erros 5xx totais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Erros 5xx totais": {
-      "main": [[{ "node": "Latência p95 média", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Latência p95 média",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Latência p95 média": {
-      "main": [[{ "node": "Linhas de log de erro", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Linhas de log de erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Linhas de log de erro": {
-      "main": [[{ "node": "Top 3 endpoints", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Top 3 endpoints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Top 3 endpoints": {
-      "main": [[{ "node": "Montar Relatório HTML", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Montar Relatório HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Montar Relatório HTML": {
-      "main": [[{ "node": "Preparar HTML binário", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Preparar HTML binário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Preparar HTML binário": {
-      "main": [[{ "node": "Converter em PDF (Gotenberg)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Converter em PDF (Gotenberg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Converter em PDF (Gotenberg)": {
-      "main": [[{ "node": "Enviar E-mail (com PDF anexo)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Enviar E-mail (com PDF anexo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
@@ -255,7 +466,11 @@
     "description": "Relatorio mensal executivo por cliente, em PDF (via Gotenberg self-hosted), enviado por e-mail via SES. Consultas encadeadas em sequencia (nao em paralelo) -- essencial pro node de montagem do HTML so rodar uma vez com todos os dados prontos. Duplique este workflow por cliente e edite o node 'Configuração'. Metricas RED assumem Django/django-prometheus -- pra outro framework, troque os nomes de metrica nos nodes HTTP, seguindo o padrao das recording rules em templates/observability/prometheus-recording-rules.yml."
   },
   "tags": [
-    { "name": "observability" },
-    { "name": "reporting" }
+    {
+      "name": "observability"
+    },
+    {
+      "name": "reporting"
+    }
   ]
 }
