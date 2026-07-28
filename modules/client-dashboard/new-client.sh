@@ -209,11 +209,19 @@ VIEWER_USER_ID="$(echo "$LOOKUP_JSON" | jq -r '.id // empty')"
 
 # Reaproveita a senha se o cliente já tiver .env (idempotência real: não gera
 # senha nova a cada execução, senão invalidaria acessos já distribuídos).
+# NUNCA usar `source` genérico aqui -- .env também guarda CLIENT_NAME/
+# CLIENT_LOGO_URL/CLIENT_PRIMARY_COLOR com esses MESMOS nomes de variável, e
+# um source sobrescreveria os argumentos recém-passados pelos valores antigos
+# salvos da execução anterior (bug real: rodar de novo pra trocar nome/logo/
+# cor nunca tinha efeito nenhum). Extrai só o campo que interessa reaproveitar.
+# Roda o source num SUBSHELL (bash -c) pra decodificar corretamente o
+# formato printf %q sem vazar CLIENT_NAME/CLIENT_LOGO_URL/etc pro processo
+# pai -- só o valor da senha atravessa, via stdout do subshell.
+EXISTING_VIEWER_PASSWORD=""
 if [[ -f "${CLIENT_DIR}/.env" ]]; then
-  # shellcheck disable=SC1091
-  set -a; source "${CLIENT_DIR}/.env"; set +a
+  EXISTING_VIEWER_PASSWORD="$(bash -c 'source "$1" 2>/dev/null; printf "%s" "${CLIENT_GRAFANA_VIEWER_PASSWORD:-}"' _ "${CLIENT_DIR}/.env")"
 fi
-VIEWER_PASSWORD="${CLIENT_GRAFANA_VIEWER_PASSWORD:-$(sp::gen_password 24)}"
+VIEWER_PASSWORD="${EXISTING_VIEWER_PASSWORD:-$(sp::gen_password 24)}"
 
 if [[ -n "$VIEWER_USER_ID" ]]; then
   sp::ok "Usuário '${VIEWER_LOGIN}' já existe (id=${VIEWER_USER_ID}). Reaproveitando."
