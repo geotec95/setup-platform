@@ -312,15 +312,19 @@ if [[ "${#PANEL_URLS[@]}" -eq 0 ]]; then
 fi
 
 # ------------------------------------------------------- 4) Persistir .env do cliente
+# printf %q (não echo cru) porque CLIENT_NAME pode ter espaço (ex: "WRI
+# Bioeconomia") -- sem isso, um `source`/`.` posterior desse .env quebra:
+# bash lê "CLIENT_NAME=WRI Bioeconomia" como CLIENT_NAME=WRI + comando
+# "Bioeconomia" separado (bug real, achado testando com o primeiro cliente).
 {
-  echo "CLIENT_NAME=${CLIENT_NAME}"
-  echo "CLIENT_DOMAIN=${CLIENT_DOMAIN}"
-  echo "CLIENT_PRIMARY_COLOR=${CLIENT_PRIMARY_COLOR}"
-  echo "CLIENT_LOGO_URL=${CLIENT_LOGO_URL}"
-  echo "GRAFANA_BASE_URL=${GRAFANA_BASE_URL}"
-  echo "CLIENT_GRAFANA_ORG_ID=${ORG_ID}"
-  echo "CLIENT_GRAFANA_VIEWER_USER=${VIEWER_LOGIN}"
-  echo "CLIENT_GRAFANA_VIEWER_PASSWORD=${VIEWER_PASSWORD}"
+  printf 'CLIENT_NAME=%q\n' "$CLIENT_NAME"
+  printf 'CLIENT_DOMAIN=%q\n' "$CLIENT_DOMAIN"
+  printf 'CLIENT_PRIMARY_COLOR=%q\n' "$CLIENT_PRIMARY_COLOR"
+  printf 'CLIENT_LOGO_URL=%q\n' "$CLIENT_LOGO_URL"
+  printf 'GRAFANA_BASE_URL=%q\n' "$GRAFANA_BASE_URL"
+  printf 'CLIENT_GRAFANA_ORG_ID=%q\n' "$ORG_ID"
+  printf 'CLIENT_GRAFANA_VIEWER_USER=%q\n' "$VIEWER_LOGIN"
+  printf 'CLIENT_GRAFANA_VIEWER_PASSWORD=%q\n' "$VIEWER_PASSWORD"
 } > "${CLIENT_DIR}/.env"
 chmod 600 "${CLIENT_DIR}/.env"
 sp::ok "Credenciais do cliente salvas em ${CLIENT_DIR}/.env"
