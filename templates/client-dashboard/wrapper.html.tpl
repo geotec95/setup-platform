@@ -9,6 +9,12 @@
        {{TAB_METRICS_PANELS}}   - painéis da aba "Métricas" (client-metrics.json)
        {{TAB_TRACES_PANELS}}    - painéis da aba "Traces" (client-traces.json)
        {{TAB_LOGS_PANELS}}      - painéis da aba "Logs" (client-logs.json)
+       {{REPORT_GENERATE_URL}}  - webhook n8n que dispara o relatório mensal
+                                  sob demanda (path único por cliente, ver
+                                  modules/client-dashboard/new-client.sh)
+       {{REPORT_HISTORY_URL}}   - webhook n8n compartilhado que devolve o
+                                  histórico de envios (?workflow_id=X já
+                                  embutido na URL por new-client.sh)
      Cada bloco de painéis é HTML já pronto com um <div class="panel-card">
      por painel (título + iframe), gerado por new-client.sh. Só a aba ativa
      carrega os iframes (data-src -> src no clique), pra não puxar Grafana
@@ -282,6 +288,96 @@
     .skeleton, .status-dot { animation: none; }
   }
 
+  .report-panel { max-width: 720px; }
+
+  .report-generate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color-soft);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  .report-generate h2 {
+    font-size: 15px;
+    margin: 0 0 6px;
+    color: var(--text-main);
+  }
+
+  .report-generate p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 46ch;
+    line-height: 1.5;
+  }
+
+  #btn-generate-report {
+    appearance: none;
+    border: none;
+    border-radius: 8px;
+    background: var(--client-primary);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 11px 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+  }
+
+  #btn-generate-report:hover { opacity: 0.88; }
+  #btn-generate-report:disabled { opacity: 0.55; cursor: default; }
+
+  .report-status {
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  .report-status.ok { background: rgba(52, 211, 153, 0.12); color: var(--ok); border: 1px solid rgba(52, 211, 153, 0.3); }
+  .report-status.err { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+  .report-panel h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+
+  .report-history { display: flex; flex-direction: column; gap: 8px; }
+
+  .report-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color-soft);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .report-history-row .when { color: var(--text-main); }
+  .report-history-row .when small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+
+  .report-history-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+
+  .report-history-status.ok { background: rgba(52, 211, 153, 0.14); color: var(--ok); }
+  .report-history-status.bad { background: rgba(239, 68, 68, 0.14); color: #f87171; }
+
   footer {
     text-align: center;
     padding: 28px 24px;
@@ -315,12 +411,12 @@
       <h1>{{CLIENT_NAME}}<small>Painel de monitoramento</small></h1>
     </div>
     <div class="header-right">
-      <div class="partner-brand" title="Arcus Cloud Security">
+      <div class="partner-brand" title="Remap Geotecnologia">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2L4 5.5V11c0 5.2 3.4 9.8 8 11 4.6-1.2 8-5.8 8-11V5.5L12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
           <path d="M9 12l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span>Arcus Cloud Security</span>
+        <span>Remap Geotecnologia</span>
       </div>
       <span class="status-badge"><span class="status-dot"></span>Operacional</span>
     </div>
@@ -331,6 +427,7 @@
     <button type="button" data-tab="metrics" role="tab" aria-selected="false">Métricas</button>
     <button type="button" data-tab="traces" role="tab" aria-selected="false">Traces</button>
     <button type="button" data-tab="logs" role="tab" aria-selected="false">Logs</button>
+    <button type="button" data-tab="report" role="tab" aria-selected="false">Relatório</button>
   </nav>
 
   <main>
@@ -352,6 +449,23 @@
     <div class="tab-panel" id="tab-logs">
       <div class="panels-grid">
         {{TAB_LOGS_PANELS}}
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-report">
+      <div class="report-panel">
+        <div class="report-generate">
+          <div>
+            <h2>Relatório mensal em PDF</h2>
+            <p>Gere o relatório de performance sob demanda, a qualquer momento &mdash; ele é enviado por e-mail para o contato cadastrado. Um envio automático também acontece todo dia 1 do mês.</p>
+          </div>
+          <button type="button" id="btn-generate-report">Gerar relatório agora</button>
+        </div>
+        <div id="report-status" class="report-status" hidden></div>
+
+        <h3>Histórico de envios</h3>
+        <div id="report-history-list" class="report-history">
+          <div class="empty-tab">Carregando histórico&hellip;</div>
+        </div>
       </div>
     </div>
   </main>
@@ -386,6 +500,80 @@
       });
 
       activateTab("overview");
+    })();
+
+    // Aba "Relatório" -- botão de disparo manual + histórico de envios.
+    // As duas URLs abaixo são webhooks do n8n (não expõem nenhuma credencial;
+    // a API key real do n8n nunca sai do servidor, ver
+    // templates/n8n-workflows/report-history-api.json).
+    (function () {
+      var GENERATE_URL = "{{REPORT_GENERATE_URL}}";
+      var HISTORY_URL = "{{REPORT_HISTORY_URL}}";
+      var historyLoaded = false;
+
+      function statusEl() { return document.getElementById("report-status"); }
+
+      function showStatus(kind, text) {
+        var el = statusEl();
+        if (!el) return;
+        el.hidden = false;
+        el.className = "report-status " + kind;
+        el.textContent = text;
+      }
+
+      function renderHistory(items) {
+        var list = document.getElementById("report-history-list");
+        if (!list) return;
+        if (!items || !items.length) {
+          list.innerHTML = '<div class="empty-tab">Nenhum relatório enviado ainda.</div>';
+          return;
+        }
+        list.innerHTML = items.map(function (item) {
+          var cls = item.ok ? "ok" : "bad";
+          return '<div class="report-history-row">' +
+            '<span class="when">' + item.date + '<small>' + item.time + '</small></span>' +
+            '<span class="report-history-status ' + cls + '">' + item.status + '</span>' +
+            '</div>';
+        }).join("");
+      }
+
+      function loadHistory() {
+        if (historyLoaded || !HISTORY_URL) return;
+        historyLoaded = true;
+        fetch(HISTORY_URL)
+          .then(function (r) { return r.json(); })
+          .then(function (data) { renderHistory(data.items); })
+          .catch(function () {
+            var list = document.getElementById("report-history-list");
+            if (list) list.innerHTML = '<div class="empty-tab">Não foi possível carregar o histórico agora.</div>';
+          });
+      }
+
+      var btn = document.getElementById("btn-generate-report");
+      if (btn) {
+        btn.addEventListener("click", function () {
+          btn.disabled = true;
+          btn.textContent = "Gerando...";
+          fetch(GENERATE_URL)
+            .then(function () {
+              showStatus("ok", "Relatório disparado! Ele chega por e-mail em alguns instantes.");
+              historyLoaded = false;
+              setTimeout(loadHistory, 4000);
+            })
+            .catch(function () {
+              showStatus("err", "Não foi possível disparar o relatório agora. Tente novamente em instantes.");
+            })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = "Gerar relatório agora";
+            });
+        });
+      }
+
+      var reportTabBtn = document.querySelector('nav.tabs button[data-tab="report"]');
+      if (reportTabBtn) {
+        reportTabBtn.addEventListener("click", loadHistory);
+      }
     })();
   </script>
 </body>

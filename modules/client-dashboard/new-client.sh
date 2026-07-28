@@ -69,6 +69,15 @@ CLIENT_DOMAIN="${2:-}"
 CLIENT_PRIMARY_COLOR="${3:-}"
 CLIENT_LOGO_URL="${4:-}"
 CLIENT_NAME="${5:-$CLIENT_SLUG}"
+# Aba "Relatório" do wrapper -- opcionais porque o workflow de relatório
+# mensal (templates/n8n-workflows/monthly-client-report.json) ainda é
+# importado/duplicado manualmente por cliente, não por este script. Passe
+# via env var quando o workflow desse cliente já existir no n8n:
+#   REPORT_GENERATE_URL=https://n8n.SEUDOMINIO/webhook/report-generate-<slug> \
+#   REPORT_HISTORY_URL=https://n8n.SEUDOMINIO/webhook/report-history?workflow_id=<id> \
+#   bash new-client.sh ...
+REPORT_GENERATE_URL="${REPORT_GENERATE_URL:-}"
+REPORT_HISTORY_URL="${REPORT_HISTORY_URL:-}"
 
 if [[ -z "$CLIENT_SLUG" || -z "$CLIENT_DOMAIN" || -z "$CLIENT_PRIMARY_COLOR" || -z "$CLIENT_LOGO_URL" ]]; then
   sp::err "Uso: bash new-client.sh <slug-cliente> <dominio-cliente> <cor-hex> <url-logo> [nome-cliente]"
@@ -369,6 +378,8 @@ sed \
   -e "s|{{CLIENT_LOGO_URL}}|${CLIENT_LOGO_URL}|g" \
   -e "s|{{CLIENT_PRIMARY_COLOR}}|${CLIENT_PRIMARY_COLOR}|g" \
   -e "s|{{CLIENT_DOMAIN}}|${CLIENT_DOMAIN}|g" \
+  -e "s|{{REPORT_GENERATE_URL}}|${REPORT_GENERATE_URL}|g" \
+  -e "s|{{REPORT_HISTORY_URL}}|${REPORT_HISTORY_URL}|g" \
   "${SP_TEMPLATES_DIR}/client-dashboard/wrapper.html.tpl" \
   | awk -v html="$TAB_OVERVIEW_HTML" '{gsub(/{{TAB_OVERVIEW_PANELS}}/, html); print}' \
   | awk -v html="$TAB_METRICS_HTML"  '{gsub(/{{TAB_METRICS_PANELS}}/, html); print}' \
