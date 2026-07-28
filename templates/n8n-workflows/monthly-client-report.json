@@ -1,0 +1,207 @@
+{
+  "name": "Relatório Mensal — Cliente",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 8 1 * *" }
+          ]
+        }
+      },
+      "id": "3c4d5e6f-0001-4a11-9a11-000000000001",
+      "name": "Todo dia 1, 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1180, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "client_slug", "type": "string", "value": "PLACEHOLDER_CLIENT_SLUG" },
+            { "id": "2", "name": "client_name", "type": "string", "value": "PLACEHOLDER_CLIENT_NAME" },
+            { "id": "3", "name": "client_email_to", "type": "string", "value": "PLACEHOLDER_CLIENT_EMAIL" },
+            { "id": "4", "name": "client_logo_url", "type": "string", "value": "PLACEHOLDER_CLIENT_LOGO_URL" },
+            { "id": "5", "name": "client_primary_color", "type": "string", "value": "#0EA5E9" },
+            { "id": "6", "name": "period_days", "type": "string", "value": "30" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-0002-4a11-9a11-000000000002",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-960, 300],
+      "notes": "Edite os valores aqui: slug do cliente (o mesmo usado no remote-agent/client-dashboard), nome, e-mail de destino, logo e cor. Duplique este workflow por cliente."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://prometheus:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "=avg_over_time(up{client=\"{{ $json.client_slug }}\", job=\"node-exporter\"}[{{ $json.period_days }}d]) * 100" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-0003-4a11-9a11-000000000003",
+      "name": "Uptime",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, 140]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://prometheus:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "=sum(increase(django_http_requests_total_by_view_transport_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d]))" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-0004-4a11-9a11-000000000004",
+      "name": "Requisições totais",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, 260]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://prometheus:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "=sum(increase(django_http_responses_total_by_status_view_method_total{client=\"{{ $('Configuração').first().json.client_slug }}\", status=~\"5..\"}[{{ $('Configuração').first().json.period_days }}d]))" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-0005-4a11-9a11-000000000005",
+      "name": "Erros 5xx totais",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://prometheus:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "=histogram_quantile(0.95, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket{client=\"{{ $('Configuração').first().json.client_slug }}\"}[{{ $('Configuração').first().json.period_days }}d])))" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-0006-4a11-9a11-000000000006",
+      "name": "Latência p95 média",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://loki:3100/loki/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "=sum(count_over_time({client=\"{{ $('Configuração').first().json.client_slug }}\", level=\"error\"}[{{ $('Configuração').first().json.period_days }}d]))" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-0007-4a11-9a11-000000000007",
+      "name": "Linhas de log de erro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, 620]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Junta os resultados de todas as consultas (Prometheus + Loki) num só\n// objeto e monta o relatório HTML com a marca do cliente (mesmo padrão\n// visual do wrapper em templates/client-dashboard/wrapper.html.tpl).\nfunction firstValue(nodeName) {\n  try {\n    const items = $(nodeName).all();\n    const result = items[0].json.data.result;\n    if (!result || !result.length) return null;\n    return parseFloat(result[0].value[1]);\n  } catch (e) {\n    return null;\n  }\n}\n\nconst cfg = $('Configuração').first().json;\n\nconst uptime = firstValue('Uptime');\nconst totalRequests = firstValue('Requisições totais');\nconst totalErrors = firstValue('Erros 5xx totais');\nconst p95 = firstValue('Latência p95 média');\nconst errorLogLines = firstValue('Linhas de log de erro');\n\nconst fmtInt = (v) => (v === null || Number.isNaN(v)) ? '-' : Math.round(v).toLocaleString('pt-BR');\nconst fmtPct = (v) => (v === null || Number.isNaN(v)) ? '-' : v.toFixed(2).replace('.', ',') + '%';\nconst fmtMs = (v) => (v === null || Number.isNaN(v)) ? '-' : Math.round(v * 1000).toLocaleString('pt-BR') + ' ms';\n\nconst errorRate = (totalRequests && totalErrors !== null && totalRequests > 0)\n  ? (totalErrors / totalRequests) * 100\n  : 0;\n\nconst now = new Date();\nconst periodLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });\n\nconst accent = cfg.client_primary_color || '#0EA5E9';\n\nconst html = `\n<div style=\"font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;background:#0a0c11;color:#e8eaef;border-radius:12px;overflow:hidden;border:1px solid #232838;\">\n  <div style=\"padding:24px 32px;border-bottom:2px solid ${accent};display:flex;align-items:center;gap:12px;\">\n    <img src=\"${cfg.client_logo_url}\" alt=\"${cfg.client_name}\" style=\"height:32px;\">\n    <div>\n      <div style=\"font-size:15px;font-weight:600;\">${cfg.client_name}</div>\n      <div style=\"font-size:11px;color:#838da3;\">Relatorio mensal de observabilidade &mdash; ${periodLabel}</div>\n    </div>\n  </div>\n  <div style=\"padding:24px 32px;display:grid;grid-template-columns:1fr 1fr;gap:16px;\">\n    <div style=\"background:#12151d;border:1px solid #1a1e2a;border-radius:10px;padding:16px;\">\n      <div style=\"font-size:11px;color:#838da3;text-transform:uppercase;letter-spacing:0.04em;\">Uptime</div>\n      <div style=\"font-size:22px;font-weight:700;margin-top:4px;\">${fmtPct(uptime)}</div>\n    </div>\n    <div style=\"background:#12151d;border:1px solid #1a1e2a;border-radius:10px;padding:16px;\">\n      <div style=\"font-size:11px;color:#838da3;text-transform:uppercase;letter-spacing:0.04em;\">Requisicoes no periodo</div>\n      <div style=\"font-size:22px;font-weight:700;margin-top:4px;\">${fmtInt(totalRequests)}</div>\n    </div>\n    <div style=\"background:#12151d;border:1px solid #1a1e2a;border-radius:10px;padding:16px;\">\n      <div style=\"font-size:11px;color:#838da3;text-transform:uppercase;letter-spacing:0.04em;\">Taxa de erro (5xx)</div>\n      <div style=\"font-size:22px;font-weight:700;margin-top:4px;\">${fmtPct(errorRate)}</div>\n    </div>\n    <div style=\"background:#12151d;border:1px solid #1a1e2a;border-radius:10px;padding:16px;\">\n      <div style=\"font-size:11px;color:#838da3;text-transform:uppercase;letter-spacing:0.04em;\">Latencia p95 media</div>\n      <div style=\"font-size:22px;font-weight:700;margin-top:4px;\">${fmtMs(p95)}</div>\n    </div>\n  </div>\n  <div style=\"padding:0 32px 24px;font-size:13px;color:#838da3;\">\n    Linhas de log de erro no periodo: <strong style=\"color:#e8eaef;\">${fmtInt(errorLogLines)}</strong>\n  </div>\n  <div style=\"padding:16px 32px;border-top:1px solid #232838;font-size:11px;color:#838da3;text-align:center;\">\n    Powered by Arcus Cloud Security\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    subject: `Relatorio mensal - ${cfg.client_name} - ${periodLabel}`,\n    html,\n    to: cfg.client_email_to,\n  }\n}];\n"
+      },
+      "id": "3c4d5e6f-0008-4a11-9a11-000000000008",
+      "name": "Montar Relatório HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alertas@arcuscloud.com.br",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "3c4d5e6f-0009-4a11-9a11-000000000009",
+      "name": "Enviar E-mail",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [-280, 300],
+      "credentials": {
+        "smtp": {
+          "id": "VWpImzjI4gfOTKt8",
+          "name": "SES SMTP (Arcus alerts)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todo dia 1, 08:00": {
+      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
+    },
+    "Configuração": {
+      "main": [[
+        { "node": "Uptime", "type": "main", "index": 0 },
+        { "node": "Requisições totais", "type": "main", "index": 0 },
+        { "node": "Erros 5xx totais", "type": "main", "index": 0 },
+        { "node": "Latência p95 média", "type": "main", "index": 0 },
+        { "node": "Linhas de log de erro", "type": "main", "index": 0 }
+      ]]
+    },
+    "Uptime": {
+      "main": [[{ "node": "Montar Relatório HTML", "type": "main", "index": 0 }]]
+    },
+    "Requisições totais": {
+      "main": [[{ "node": "Montar Relatório HTML", "type": "main", "index": 0 }]]
+    },
+    "Erros 5xx totais": {
+      "main": [[{ "node": "Montar Relatório HTML", "type": "main", "index": 0 }]]
+    },
+    "Latência p95 média": {
+      "main": [[{ "node": "Montar Relatório HTML", "type": "main", "index": 0 }]]
+    },
+    "Linhas de log de erro": {
+      "main": [[{ "node": "Montar Relatório HTML", "type": "main", "index": 0 }]]
+    },
+    "Montar Relatório HTML": {
+      "main": [[{ "node": "Enviar E-mail", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "description": "Relatorio mensal automatico por cliente: consulta Prometheus/Loki direto (mesma rede Docker do observability) e envia por e-mail via SES. Duplique este workflow por cliente e edite o node 'Configuração'. Metricas RED (requisicoes/erros/latencia) assumem instrumentacao Django (django-prometheus) -- para outro framework, troque os nomes de metrica nos 3 nodes HTTP correspondentes, seguindo o mesmo padrao das recording rules em templates/observability/prometheus-recording-rules.yml. A query de latencia usa o histograma bruto (nao a recording rule per-view) agregando todas as views juntas via histogram_quantile -- evita o NaN que aparece ao tirar media de p95 por view quando alguma view tem poucas amostras."
+  },
+  "tags": [
+    { "name": "observability" },
+    { "name": "reporting" }
+  ]
+}
