@@ -5,9 +5,14 @@
        {{CLIENT_LOGO_URL}}      - URL pública do logo do cliente
        {{CLIENT_PRIMARY_COLOR}} - cor de destaque em hex (ex: #0EA5E9)
        {{CLIENT_DOMAIN}}        - domínio final (usado no rodapé/meta)
-       {{GRAFANA_PANEL_IFRAMES}}- bloco HTML já pronto com um <div class="panel-card">
-                                  por painel, com título + iframe (gerado
-                                  dinamicamente por new-client.sh) -->
+       {{TAB_OVERVIEW_PANELS}}  - painéis da aba "Visão Geral" (client-overview.json)
+       {{TAB_METRICS_PANELS}}   - painéis da aba "Métricas" (client-metrics.json)
+       {{TAB_TRACES_PANELS}}    - painéis da aba "Traces" (client-traces.json)
+       {{TAB_LOGS_PANELS}}      - painéis da aba "Logs" (client-logs.json)
+     Cada bloco de painéis é HTML já pronto com um <div class="panel-card">
+     por painel (título + iframe), gerado por new-client.sh. Só a aba ativa
+     carrega os iframes (data-src -> src no clique), pra não puxar Grafana
+     4x na primeira visita. -->
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -45,13 +50,13 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 16px 32px;
+    padding: 14px 32px;
     background: color-mix(in srgb, var(--bg-header) 88%, transparent);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
   }
 
   header::after {
@@ -62,7 +67,13 @@
     background: linear-gradient(90deg, var(--client-primary), transparent 70%);
   }
 
-  header img {
+  .client-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .client-brand img {
     height: 32px;
     width: auto;
     object-fit: contain;
@@ -84,8 +95,32 @@
     margin-top: 2px;
   }
 
-  .status-badge {
+  .header-right {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .partner-brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    padding-right: 14px;
+    border-right: 1px solid var(--border-color);
+  }
+
+  .partner-brand svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .partner-brand span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .status-badge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -112,10 +147,56 @@
     100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
   }
 
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 32px;
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 61px;
+    z-index: 19;
+    overflow-x: auto;
+  }
+
+  nav.tabs button {
+    appearance: none;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 16px 10px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+  }
+
+  nav.tabs button:hover { color: var(--text-main); }
+
+  nav.tabs button.active {
+    color: var(--text-main);
+    border-bottom-color: var(--client-primary);
+  }
+
   main {
     padding: 28px 32px 56px;
     max-width: 1600px;
     margin: 0 auto;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .empty-tab {
+    color: var(--text-muted);
+    font-size: 13px;
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
   }
 
   .panels-grid {
@@ -166,7 +247,10 @@
 
   .panel-card-body {
     position: relative;
-    height: 360px;
+    /* cada card embute um dashboard inteiro do Grafana (vários painéis
+       empilhados), não um painel avulso -- precisa de bastante altura */
+    height: calc(100vh - 190px);
+    min-height: 480px;
   }
 
   .panel-card iframe {
@@ -215,27 +299,94 @@
   @media (max-width: 640px) {
     header { padding: 12px 16px; }
     header h1 { font-size: 13px; }
+    .partner-brand span { display: none; }
+    .partner-brand { padding-right: 8px; }
+    nav.tabs { padding: 0 16px; top: 57px; }
     main { padding: 16px; }
     .panels-grid { grid-template-columns: 1fr; }
-    .panel-card-body { height: 300px; }
+    .panel-card-body { height: 70vh; min-height: 420px; }
   }
 </style>
 </head>
 <body>
   <header>
-    <img src="{{CLIENT_LOGO_URL}}" alt="{{CLIENT_NAME}}">
-    <h1>{{CLIENT_NAME}}<small>Painel de monitoramento</small></h1>
-    <span class="status-badge"><span class="status-dot"></span>Operacional</span>
+    <div class="client-brand">
+      <img src="{{CLIENT_LOGO_URL}}" alt="{{CLIENT_NAME}}">
+      <h1>{{CLIENT_NAME}}<small>Painel de monitoramento</small></h1>
+    </div>
+    <div class="header-right">
+      <div class="partner-brand" title="Arcus Cloud Security">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L4 5.5V11c0 5.2 3.4 9.8 8 11 4.6-1.2 8-5.8 8-11V5.5L12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M9 12l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Arcus Cloud Security</span>
+      </div>
+      <span class="status-badge"><span class="status-dot"></span>Operacional</span>
+    </div>
   </header>
 
+  <nav class="tabs" role="tablist">
+    <button type="button" class="active" data-tab="overview" role="tab" aria-selected="true">Visão Geral</button>
+    <button type="button" data-tab="metrics" role="tab" aria-selected="false">Métricas</button>
+    <button type="button" data-tab="traces" role="tab" aria-selected="false">Traces</button>
+    <button type="button" data-tab="logs" role="tab" aria-selected="false">Logs</button>
+  </nav>
+
   <main>
-    <div class="panels-grid">
-      {{GRAFANA_PANEL_IFRAMES}}
+    <div class="tab-panel active" id="tab-overview">
+      <div class="panels-grid">
+        {{TAB_OVERVIEW_PANELS}}
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-metrics">
+      <div class="panels-grid">
+        {{TAB_METRICS_PANELS}}
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-traces">
+      <div class="panels-grid">
+        {{TAB_TRACES_PANELS}}
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-logs">
+      <div class="panels-grid">
+        {{TAB_LOGS_PANELS}}
+      </div>
     </div>
   </main>
 
   <footer>
     Powered by Arcus Cloud Security &middot; <a href="https://{{CLIENT_DOMAIN}}">{{CLIENT_DOMAIN}}</a>
   </footer>
+
+  <script>
+    (function () {
+      function activateTab(name) {
+        document.querySelectorAll("nav.tabs button").forEach(function (btn) {
+          var isActive = btn.dataset.tab === name;
+          btn.classList.toggle("active", isActive);
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+        document.querySelectorAll(".tab-panel").forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === "tab-" + name);
+        });
+        // só carrega os iframes da aba que o cliente realmente abriu
+        var panel = document.getElementById("tab-" + name);
+        if (panel) {
+          panel.querySelectorAll("iframe[data-src]").forEach(function (frame) {
+            frame.src = frame.dataset.src;
+            frame.removeAttribute("data-src");
+          });
+        }
+      }
+
+      document.querySelectorAll("nav.tabs button").forEach(function (btn) {
+        btn.addEventListener("click", function () { activateTab(btn.dataset.tab); });
+      });
+
+      activateTab("overview");
+    })();
+  </script>
 </body>
 </html>

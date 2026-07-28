@@ -206,11 +206,22 @@ sp::cd::grafana_admin_api_org "$ORG_ID" POST "/api/org/users" \
 # pelo slug fixo deste cliente antes de salvar — assim o dashboard copiado
 # fica estruturalmente preso a UM cliente, não importa o que o Grafana ou o
 # visitante tentem fazer com a URL pública.
-PUBLISHABLE_DASHBOARD_UIDS=("remote-clients")
+# Cada UID mapeia pra uma aba do wrapper (ver templates/client-dashboard/
+# wrapper.html.tpl) -- um dashboard inteiro por aba, embutido como 1 iframe
+# só (não painel a painel), então cada um já vem com Visão Geral / Métricas /
+# Traces / Logs organizados como o Grafana os desenhou.
+PUBLISHABLE_DASHBOARD_UIDS=("client-overview" "client-metrics" "client-traces" "client-logs")
+declare -A DASHBOARD_TAB=(
+  [client-overview]="overview"
+  [client-metrics]="metrics"
+  [client-traces]="traces"
+  [client-logs]="logs"
+)
 
 sp::info "Copiando dashboards padrão (allowlist) para a org do cliente..."
 PANEL_URLS=()
 PANEL_TITLES=()
+PANEL_TABS=()
 
 for uid in "${PUBLISHABLE_DASHBOARD_UIDS[@]}"; do
   DASH_JSON="$(sp::cd::grafana_admin_api_org 1 GET "/api/dashboards/uid/${uid}" || true)"
@@ -248,6 +259,7 @@ for uid in "${PUBLISHABLE_DASHBOARD_UIDS[@]}"; do
   if [[ -n "$PUBLIC_UID" ]]; then
     PANEL_URLS+=("${GRAFANA_BASE_URL}/public-dashboards/${PUBLIC_UID}")
     PANEL_TITLES+=("$DASH_TITLE")
+    PANEL_TABS+=("${DASHBOARD_TAB[$uid]}")
   else
     sp::warn "Não foi possível habilitar public-dashboard para '${DASH_TITLE}' (recurso pode não estar habilitado no Grafana). Pulei o iframe."
   fi
@@ -275,16 +287,32 @@ sp::ok "Credenciais do cliente salvas em ${CLIENT_DIR}/.env"
 # Cada card leva o título real do dashboard (já traduzido/pt-br na origem) e
 # um skeleton de loading que some via onload — iframe do Grafana demora a
 # carregar, tela em branco parece "quebrado" pro cliente (ver skill
-# dashboard-design).
-IFRAMES_HTML=""
+# dashboard-design). O iframe usa data-src (não src): o JS do wrapper só
+# preenche src quando o cliente abre aquela aba, pra não carregar as 4
+# dashboards inteiras de uma vez na primeira visita.
+TAB_OVERVIEW_HTML=""
+TAB_METRICS_HTML=""
+TAB_TRACES_HTML=""
+TAB_LOGS_HTML=""
 for i in "${!PANEL_URLS[@]}"; do
   url="${PANEL_URLS[$i]}"
   title="${PANEL_TITLES[$i]}"
-  IFRAMES_HTML+="      <div class=\"panel-card\">"
-  IFRAMES_HTML+="<div class=\"panel-card-header\"><span class=\"dot\"></span><span class=\"panel-title\">${title}</span></div>"
-  IFRAMES_HTML+="<div class=\"panel-card-body\"><div class=\"skeleton\"></div><iframe src=\"${url}\" loading=\"lazy\" onload=\"this.previousElementSibling.style.display='none'\"></iframe></div>"
-  IFRAMES_HTML+="</div>"$'\n'
+  tab="${PANEL_TABS[$i]}"
+  card="      <div class=\"panel-card\">"
+  card+="<div class=\"panel-card-header\"><span class=\"dot\"></span><span class=\"panel-title\">${title}</span></div>"
+  card+="<div class=\"panel-card-body\"><div class=\"skeleton\"></div><iframe data-src=\"${url}\" loading=\"lazy\" onload=\"this.previousElementSibling.style.display='none'\"></iframe></div>"
+  card+="</div>"$'\n'
+  case "$tab" in
+    overview) TAB_OVERVIEW_HTML+="$card" ;;
+    metrics)  TAB_METRICS_HTML+="$card" ;;
+    traces)   TAB_TRACES_HTML+="$card" ;;
+    logs)     TAB_LOGS_HTML+="$card" ;;
+  esac
 done
+[[ -z "$TAB_OVERVIEW_HTML" ]] && TAB_OVERVIEW_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
+[[ -z "$TAB_METRICS_HTML"  ]] && TAB_METRICS_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
+[[ -z "$TAB_TRACES_HTML"   ]] && TAB_TRACES_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
+[[ -z "$TAB_LOGS_HTML"     ]] && TAB_LOGS_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
 
 DATA_DIR="$(sp::ensure_data_dir "client-dashboard/${CLIENT_SLUG}")"
 mkdir -p "${DATA_DIR}/html"
@@ -296,7 +324,10 @@ sed \
   -e "s|{{CLIENT_PRIMARY_COLOR}}|${CLIENT_PRIMARY_COLOR}|g" \
   -e "s|{{CLIENT_DOMAIN}}|${CLIENT_DOMAIN}|g" \
   "${SP_TEMPLATES_DIR}/client-dashboard/wrapper.html.tpl" \
-  | awk -v iframes="$IFRAMES_HTML" '{gsub(/{{GRAFANA_PANEL_IFRAMES}}/, iframes); print}' \
+  | awk -v html="$TAB_OVERVIEW_HTML" '{gsub(/{{TAB_OVERVIEW_PANELS}}/, html); print}' \
+  | awk -v html="$TAB_METRICS_HTML"  '{gsub(/{{TAB_METRICS_PANELS}}/, html); print}' \
+  | awk -v html="$TAB_TRACES_HTML"   '{gsub(/{{TAB_TRACES_PANELS}}/, html); print}' \
+  | awk -v html="$TAB_LOGS_HTML"     '{gsub(/{{TAB_LOGS_PANELS}}/, html); print}' \
   > "${DATA_DIR}/html/index.html"
 
 sp::ok "Wrapper HTML gerado em ${DATA_DIR}/html/index.html"
