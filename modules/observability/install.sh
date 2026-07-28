@@ -82,6 +82,13 @@ fi
 ALERT_EMAIL_TO="${ALERT_EMAIL_TO:-alertas@invalido.local}"
 ALERT_WEBHOOK_URL="${ALERT_WEBHOOK_URL:-https://placeholder.invalid/webhook}"
 
+# API Key de métricas do Uptime Kuma (Settings > API Keys, com "Expose
+# Metrics" habilitado) — opcional, permite monitorar disponibilidade de
+# frontend/backend de cliente junto do resto da observabilidade.
+if [[ -z "${UPTIME_KUMA_METRICS_KEY:-}" ]]; then
+  read -r -p "$(echo -e "${C_WHITE}API Key do Uptime Kuma pra métricas (Settings > API Keys, ENTER pra pular): ${C_RESET}")" UPTIME_KUMA_METRICS_KEY
+fi
+
 # --- Diretórios de dados (persistência sempre em /data/<tool>, nunca em volume anônimo) ---
 # Cada imagem roda como um usuário não-root diferente; sem o chown correto o
 # container crasha ao tentar escrever no volume (mesmo bug encontrado no n8n).
@@ -109,7 +116,8 @@ mkdir -p \
 # precisa ser legível por "outros", não só pelo grupo dono (root).
 chmod -R a+rX "$CONF_DIR"
 
-cp -f "${SP_TEMPLATES_DIR}/observability/prometheus.yml.tpl"              "${CONF_DIR}/prometheus/prometheus.yml"
+sed "s|{{UPTIME_KUMA_METRICS_KEY}}|${UPTIME_KUMA_METRICS_KEY}|g" \
+  "${SP_TEMPLATES_DIR}/observability/prometheus.yml.tpl" > "${CONF_DIR}/prometheus/prometheus.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/prometheus-recording-rules.yml"  "${CONF_DIR}/prometheus/rules/app-red.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/loki-config.yml"                 "${CONF_DIR}/loki/loki-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/tempo-config.yml"                "${CONF_DIR}/tempo/tempo-config.yml"
@@ -143,6 +151,7 @@ cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-rules.yml"       "${CO
   echo "GF_SMTP_ENABLED=${GF_SMTP_ENABLED}"
   echo "ALERT_EMAIL_TO=${ALERT_EMAIL_TO}"
   echo "ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL}"
+  printf 'UPTIME_KUMA_METRICS_KEY=%q\n' "${UPTIME_KUMA_METRICS_KEY:-}"
   echo "TZ=America/Sao_Paulo"
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"

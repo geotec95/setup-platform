@@ -1,8 +1,9 @@
 # templates/observability/prometheus.yml.tpl
-# Configuração do Prometheus do módulo observability. Copiada sem
-# substituição de variáveis (todos os alvos usam nomes de serviço do Swarm,
-# resolvidos via DNS interno da rede 'rede_publica') para
-# /data/observability/config/prometheus/prometheus.yml pelo install.sh.
+# Configuração do Prometheus do módulo observability. Copiada para
+# /data/observability/config/prometheus/prometheus.yml pelo install.sh, que
+# substitui o único placeholder existente ({{UPTIME_KUMA_METRICS_KEY}}) --
+# todos os outros alvos usam nomes de serviço do Swarm, resolvidos via DNS
+# interno da rede 'rede_publica', sem necessidade de substituição.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -29,6 +30,19 @@ scrape_configs:
   - job_name: node-exporter
     static_configs:
       - targets: ["node-exporter:9100"]
+
+  # Disponibilidade de frontend/backend de cliente monitorada pelo Uptime
+  # Kuma (módulo separado, mesma rede) -- exposta em /metrics protegida por
+  # Basic Auth (usuário vazio, senha = API Key gerada em Settings > API Keys
+  # no próprio Uptime Kuma). Sem a chave configurada, este job só gera
+  # warnings de 401 no log do Prometheus -- não quebra o resto do scrape.
+  - job_name: uptime-kuma
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["uptime-kuma:3001"]
+    basic_auth:
+      username: ""
+      password: "{{UPTIME_KUMA_METRICS_KEY}}"
 
   # -------------------------------------------------------------------------
   # EXTENSÃO FUTURA — auto-discovery via Docker Swarm:
