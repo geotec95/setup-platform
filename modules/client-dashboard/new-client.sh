@@ -380,6 +380,11 @@ done
 DATA_DIR="$(sp::ensure_data_dir "client-dashboard/${CLIENT_SLUG}")"
 mkdir -p "${DATA_DIR}/html"
 
+# Logo da Remap é fixa (mesma marca em todo dashboard de cliente) -- gerada
+# aqui direto do asset no repo, não é argumento do script. base64/data URI
+# vai via awk (não sed) por ser grande demais pra um `-e s|...|...|` confortável.
+REMAP_LOGO_DATA_URI="data:image/png;base64,$(base64 -w0 "${SP_ROOT}/logos/vertical-colorida-principal.png")"
+
 # sed com delimitador alternativo (|) porque URLs contêm '/'
 sed \
   -e "s|{{CLIENT_NAME}}|${CLIENT_NAME}|g" \
@@ -392,6 +397,7 @@ sed \
   | awk -v html="$TAB_OVERVIEW_HTML" '{gsub(/{{TAB_OVERVIEW_PANELS}}/, html); print}' \
   | awk -v html="$TAB_METRICS_HTML"  '{gsub(/{{TAB_METRICS_PANELS}}/, html); print}' \
   | awk -v html="$TAB_TRACES_HTML"   '{gsub(/{{TAB_TRACES_PANELS}}/, html); print}' \
+  | awk -v uri="$REMAP_LOGO_DATA_URI" '{gsub(/{{REMAP_LOGO_DATA_URI}}/, uri); print}' \
   | awk -v html="$TAB_LOGS_HTML"     '{gsub(/{{TAB_LOGS_PANELS}}/, html); print}' \
   > "${DATA_DIR}/html/index.html"
 

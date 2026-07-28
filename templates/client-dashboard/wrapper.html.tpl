@@ -15,6 +15,9 @@
        {{REPORT_HISTORY_URL}}   - webhook n8n compartilhado que devolve o
                                   histórico de envios (?workflow_id=X já
                                   embutido na URL por new-client.sh)
+       {{REMAP_LOGO_DATA_URI}}  - logo da Remap embutida (data URI), fixa
+                                  pra todo cliente (ver new-client.sh) --
+                                  co-branding igual ao usado no PDF
      Cada bloco de painéis é HTML já pronto com um <div class="panel-card">
      por painel (título + iframe), gerado por new-client.sh. Só a aba ativa
      carrega os iframes (data-src -> src no clique), pra não puxar Grafana
@@ -111,19 +114,17 @@
   .partner-brand {
     display: flex;
     align-items: center;
-    gap: 6px;
-    color: var(--text-muted);
     padding-right: 14px;
     border-right: 1px solid var(--border-color);
   }
 
-  .partner-brand svg { width: 16px; height: 16px; flex-shrink: 0; }
-
-  .partner-brand span {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
+  .partner-brand img {
+    height: 22px;
+    width: auto;
+    display: block;
+    background: #fff;
+    border-radius: 6px;
+    padding: 4px 8px;
   }
 
   .status-badge {
@@ -395,8 +396,8 @@
   @media (max-width: 640px) {
     header { padding: 12px 16px; }
     header h1 { font-size: 13px; }
-    .partner-brand span { display: none; }
     .partner-brand { padding-right: 8px; }
+    .partner-brand img { height: 18px; }
     nav.tabs { padding: 0 16px; top: 57px; }
     main { padding: 16px; }
     .panels-grid { grid-template-columns: 1fr; }
@@ -412,11 +413,7 @@
     </div>
     <div class="header-right">
       <div class="partner-brand" title="Remap Geotecnologia">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L4 5.5V11c0 5.2 3.4 9.8 8 11 4.6-1.2 8-5.8 8-11V5.5L12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          <path d="M9 12l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>Remap Geotecnologia</span>
+        <img src="{{REMAP_LOGO_DATA_URI}}" alt="Remap Geotecnologia">
       </div>
       <span class="status-badge"><span class="status-dot"></span>Operacional</span>
     </div>
