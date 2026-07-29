@@ -66,6 +66,46 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 4,
+      "title": "Requisições por país (período selecionado)",
+      "description": "De onde vêm as requisições, com base no IP de origem geolocalizado (base MaxMind GeoLite2). Tráfego interno de monitoramento (health-check, scrape) também aparece contado aqui.",
+      "type": "table",
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "expr": "topk(15, sum by (geoip_country_name) (count_over_time({client=~\"$client\"} | remote_addr != \"\" [$__range])))",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "renameByName": { "geoip_country_name": "País", "Value": "Requisições" } } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "title": "Top IPs de origem (período selecionado)",
+      "description": "IPs com mais requisições no período. Útil pra identificar tanto os maiores usuários reais quanto tráfego de infraestrutura (ex: health-checker da AWS, o próprio agente de monitoramento).",
+      "type": "table",
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "expr": "topk(15, sum by (remote_addr, geoip_city_name, geoip_country_name) (count_over_time({client=~\"$client\"} | remote_addr != \"\" [$__range])))",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "renameByName": { "remote_addr": "IP", "geoip_city_name": "Cidade", "geoip_country_name": "País", "Value": "Requisições" } } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
     }
   ]
 }

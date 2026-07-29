@@ -30,6 +30,9 @@ services:
       - /data/remote-agent/config/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Base GeoLite2-City (MaxMind) pra geolocalizar IP de origem -- vazio se
+      # MAXMIND_LICENSE_KEY não foi configurada (stage geoip fica desativado).
+      - /data/remote-agent/config/geoip:/etc/promtail/geoip:ro
     networks:
       - rede_publica
     deploy:

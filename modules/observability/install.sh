@@ -89,6 +89,14 @@ if [[ -z "${UPTIME_KUMA_METRICS_KEY:-}" ]]; then
   read -r -p "$(echo -e "${C_WHITE}API Key do Uptime Kuma pra métricas (Settings > API Keys, ENTER pra pular): ${C_RESET}")" UPTIME_KUMA_METRICS_KEY
 fi
 
+# License key gratuita da MaxMind (maxmind.com/en/geolite2/signup) pra
+# geolocalizar o IP de origem nas requisições de acesso — opcional, mesmo
+# padrão ENTER-pra-pular. Reaproveitada em --update (não expira, mas não tem
+# por que pedir de novo toda vez).
+if [[ -z "${MAXMIND_LICENSE_KEY:-}" ]]; then
+  read -r -p "$(echo -e "${C_WHITE}License key da MaxMind pra geolocalizar IPs de origem (ENTER pra pular): ${C_RESET}")" MAXMIND_LICENSE_KEY
+fi
+
 # --- Diretórios de dados (persistência sempre em /data/<tool>, nunca em volume anônimo) ---
 # Cada imagem roda como um usuário não-root diferente; sem o chown correto o
 # container crasha ao tentar escrever no volume (mesmo bug encontrado no n8n).
@@ -121,7 +129,14 @@ sed "s|{{UPTIME_KUMA_METRICS_KEY}}|${UPTIME_KUMA_METRICS_KEY}|g" \
 cp -f "${SP_TEMPLATES_DIR}/observability/prometheus-recording-rules.yml"  "${CONF_DIR}/prometheus/rules/app-red.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/loki-config.yml"                 "${CONF_DIR}/loki/loki-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/tempo-config.yml"                "${CONF_DIR}/tempo/tempo-config.yml"
-cp -f "${SP_TEMPLATES_DIR}/observability/promtail-config.yml"             "${CONF_DIR}/promtail/promtail-config.yml"
+GEOIP_DIR="${CONF_DIR}/geoip"
+GEOIP_MMDB_PRESENT="false"
+if sp::download_geoip_db "${MAXMIND_LICENSE_KEY:-}" "$GEOIP_DIR"; then
+  GEOIP_MMDB_PRESENT="true"
+fi
+GEOIP_STAGES_BLOCK="$(sp::geoip_stages_yaml "/etc/promtail/geoip/GeoLite2-City.mmdb" "$GEOIP_MMDB_PRESENT")"
+awk -v block="$GEOIP_STAGES_BLOCK" '{gsub(/{{GEOIP_STAGES}}/, block); print}' \
+  "${SP_TEMPLATES_DIR}/observability/promtail-config.yml" > "${CONF_DIR}/promtail/promtail-config.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-datasources.yml"         "${CONF_DIR}/grafana/provisioning/datasources/datasources.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-dashboards-provisioning.yml" "${CONF_DIR}/grafana/provisioning/dashboards/dashboards.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/docker-overview.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/docker-overview.json"
@@ -159,6 +174,7 @@ cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-rules.yml"       "${CO
   echo "ALERT_EMAIL_TO=${ALERT_EMAIL_TO}"
   echo "ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL}"
   printf 'UPTIME_KUMA_METRICS_KEY=%q\n' "${UPTIME_KUMA_METRICS_KEY:-}"
+  printf 'MAXMIND_LICENSE_KEY=%q\n' "${MAXMIND_LICENSE_KEY:-}"
   echo "TZ=America/Sao_Paulo"
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"

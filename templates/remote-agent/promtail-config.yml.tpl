@@ -46,3 +46,8 @@ scrape_configs:
           template: '{{ ToLower .Value | replace "warning" "warn" | replace "critical" "error" | replace "panic" "fatal" }}'
       - labels:
           level:
+      # Mesmo tratamento do observability/promtail-config.yml: extrai o IP de
+      # origem só quando a linha tem formato de log de acesso HTTP.
+      - regex:
+          expression: '^(?P<remote_addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s\S+\s\S+\s\[.+?\]\s"(?P<http_method>[A-Z]+)\s(?P<request_path>\S+)'
+{{GEOIP_STAGES}}

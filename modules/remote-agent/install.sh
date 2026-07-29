@@ -50,6 +50,13 @@ if [[ -n "${APP_CONTAINER:-}" && -z "${APP_METRICS_PORT:-}" ]]; then
   read -r -p "$(echo -e "${C_WHITE}Porta do endpoint /metrics dessa app (ex: 8000): ${C_RESET}")" APP_METRICS_PORT
 fi
 
+# Mesma license key gratuita da MaxMind usada pelo observability central —
+# não é credencial do cliente, é da Arcus/Remap. Opcional, ENTER pra pular
+# (fica sem geolocalização de IP nos logs deste servidor).
+if [[ -z "${MAXMIND_LICENSE_KEY:-}" ]]; then
+  read -r -p "$(echo -e "${C_WHITE}License key da MaxMind pra geolocalizar IPs de origem (ENTER pra pular): ${C_RESET}")" MAXMIND_LICENSE_KEY
+fi
+
 if [[ -n "${APP_CONTAINER:-}" && -n "${APP_METRICS_PORT:-}" ]]; then
   APP_SCRAPE_CONFIG="  - job_name: app
     metrics_path: /metrics
@@ -75,11 +82,20 @@ sed -e "s|{{CENTRAL_INGEST_DOMAIN}}|${CENTRAL_INGEST_DOMAIN}|g" \
   | awk -v cfg="$APP_SCRAPE_CONFIG" '{gsub(/{{APP_SCRAPE_CONFIG}}/, cfg); print}' \
   > "${CONF_DIR}/prometheus-agent.yml"
 
+GEOIP_DIR="${CONF_DIR}/geoip"
+GEOIP_MMDB_PRESENT="false"
+if sp::download_geoip_db "${MAXMIND_LICENSE_KEY:-}" "$GEOIP_DIR"; then
+  GEOIP_MMDB_PRESENT="true"
+fi
+GEOIP_STAGES_BLOCK="$(sp::geoip_stages_yaml "/etc/promtail/geoip/GeoLite2-City.mmdb" "$GEOIP_MMDB_PRESENT")"
+
 sed -e "s|{{CENTRAL_INGEST_DOMAIN}}|${CENTRAL_INGEST_DOMAIN}|g" \
     -e "s|{{INGEST_USER}}|${INGEST_USER}|g" \
     -e "s|{{INGEST_PASSWORD}}|${INGEST_PASSWORD}|g" \
     -e "s|{{CLIENT_LABEL}}|${CLIENT_LABEL}|g" \
-    "${SP_TEMPLATES_DIR}/remote-agent/promtail-config.yml.tpl" > "${CONF_DIR}/promtail-config.yml"
+    "${SP_TEMPLATES_DIR}/remote-agent/promtail-config.yml.tpl" \
+  | awk -v block="$GEOIP_STAGES_BLOCK" '{gsub(/{{GEOIP_STAGES}}/, block); print}' \
+  > "${CONF_DIR}/promtail-config.yml"
 
 # Ambos os arquivos contêm INGEST_PASSWORD em texto claro — nunca world-readable
 # (achado C3 da auditoria de segurança: estavam 644, legíveis por qualquer
@@ -96,6 +112,7 @@ chmod 600 "${CONF_DIR}/promtail-config.yml"
   echo "CLIENT_LABEL=${CLIENT_LABEL}"
   echo "APP_CONTAINER=${APP_CONTAINER:-}"
   echo "APP_METRICS_PORT=${APP_METRICS_PORT:-}"
+  printf 'MAXMIND_LICENSE_KEY=%q\n' "${MAXMIND_LICENSE_KEY:-}"
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 

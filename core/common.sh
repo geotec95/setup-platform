@@ -81,6 +81,61 @@ sp::ask() {
 # Verifica se um comando existe no PATH
 sp::has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# Baixa a base GeoLite2-City (MaxMind) pra geolocalização de IP nos logs de
+# acesso. Usado tanto pelo observability (central) quanto pelo remote-agent
+# (EC2 de cliente) — mesma license key da Arcus/Remap nos dois casos, não é
+# credencial do cliente. Silenciosamente não faz nada se a key não foi
+# fornecida (feature opcional, ver {{GEOIP_STAGES}} nos templates promtail).
+# Retorna 0 se o .mmdb ficou disponível no destino, 1 caso contrário.
+sp::download_geoip_db() {
+  local license_key="$1" dest_dir="$2"
+  [[ -z "$license_key" ]] && return 1
+  mkdir -p "$dest_dir"
+  local tmp
+  tmp="$(mktemp -d)"
+  if ! curl -fsSL "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=${license_key}&suffix=tar.gz" -o "${tmp}/geolite2-city.tar.gz"; then
+    sp::warn "Não foi possível baixar a base GeoLite2-City (license key inválida ou sem rede) — geolocalização de IP fica desativada."
+    rm -rf "$tmp"
+    return 1
+  fi
+  tar -xzf "${tmp}/geolite2-city.tar.gz" -C "$tmp"
+  local mmdb
+  mmdb="$(find "$tmp" -name "GeoLite2-City.mmdb" | head -n1)"
+  if [[ -z "$mmdb" ]]; then
+    sp::warn "Download da base GeoLite2-City não continha o arquivo .mmdb esperado."
+    rm -rf "$tmp"
+    return 1
+  fi
+  cp -f "$mmdb" "${dest_dir}/GeoLite2-City.mmdb"
+  chmod -R a+rX "$dest_dir"
+  rm -rf "$tmp"
+  return 0
+}
+
+# Gera o bloco YAML dos stages "geoip" + "structured_metadata" do Promtail
+# (indentado pra encaixar em pipeline_stages), ou um comentário inofensivo se
+# a base não estiver disponível em db_path. Usa structured metadata (não
+# labels) pra IP/país/cidade -- evita explosão de cardinalidade no Loki.
+sp::geoip_stages_yaml() {
+  local mmdb_container_path="$1" mmdb_present="$2"
+  if [[ "$mmdb_present" == "true" ]]; then
+    cat <<EOF
+  - geoip:
+      db: ${mmdb_container_path}
+      source: remote_addr
+      db_type: city
+  - structured_metadata:
+      remote_addr:
+      geoip_country_name:
+      geoip_city_name:
+      geoip_location_latitude:
+      geoip_location_longitude:
+EOF
+  else
+    echo "  # geolocalização desativada (defina MAXMIND_LICENSE_KEY e rode --update para ativar)"
+  fi
+}
+
 # Idempotência: verifica se um container/stack já está rodando (usado pelos módulos)
 sp::is_stack_up() {
   local stack_name="$1"

@@ -159,6 +159,10 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       # Socket read-only, usado só para descoberta de metadados dos containers (docker_sd_configs)
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Base GeoLite2-City (MaxMind) pra geolocalizar IP de origem -- diretório
+      # fica vazio se MAXMIND_LICENSE_KEY não foi configurada (stage geoip
+      # desativado nesse caso, ver {{GEOIP_STAGES}} no promtail-config.yml).
+      - /data/observability/config/geoip:/etc/promtail/geoip:ro
     networks:
       - rede_publica
     deploy:

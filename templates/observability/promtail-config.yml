@@ -52,3 +52,10 @@ scrape_configs:
           template: '{{ ToLower .Value | replace "warning" "warn" | replace "critical" "error" | replace "panic" "fatal" }}'
       - labels:
           level:
+      # Extrai o IP de origem de linhas em formato de log de acesso HTTP
+      # (combined-like: `IP - - [timestamp] "METHOD path ...`). Não casa em
+      # linhas fora desse formato (logs de app genéricos), então é seguro
+      # deixar sempre ativo — só "acerta" quando o log realmente é de acesso.
+      - regex:
+          expression: '^(?P<remote_addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s\S+\s\S+\s\[.+?\]\s"(?P<http_method>[A-Z]+)\s(?P<request_path>\S+)'
+{{GEOIP_STAGES}}
