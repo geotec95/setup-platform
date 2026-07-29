@@ -120,19 +120,19 @@ sp::geoip_stages_yaml() {
   local mmdb_container_path="$1" mmdb_present="$2"
   if [[ "$mmdb_present" == "true" ]]; then
     cat <<EOF
-  - geoip:
-      db: ${mmdb_container_path}
-      source: remote_addr
-      db_type: city
-  - structured_metadata:
-      remote_addr:
-      geoip_country_name:
-      geoip_city_name:
-      geoip_location_latitude:
-      geoip_location_longitude:
+      - geoip:
+          db: ${mmdb_container_path}
+          source: remote_addr
+          db_type: city
+      - structured_metadata:
+          remote_addr:
+          geoip_country_name:
+          geoip_city_name:
+          geoip_location_latitude:
+          geoip_location_longitude:
 EOF
   else
-    echo "  # geolocalização desativada (defina MAXMIND_LICENSE_KEY e rode --update para ativar)"
+    echo "      # geolocalização desativada (defina MAXMIND_LICENSE_KEY e rode --update para ativar)"
   fi
 }
 
