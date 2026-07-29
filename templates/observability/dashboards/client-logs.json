@@ -110,6 +110,25 @@
         { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "remote_addr": "IP", "geoip_city_name": "Cidade", "geoip_country_name": "País", "Value": "Requisições" } } }
       ],
       "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "title": "Visitantes únicos por dia",
+      "description": "Quantidade de IPs externos distintos que acessaram por dia (aproximação de visitantes únicos, baseada no IP de origem -- não é sessão/usuário real como Google Analytics, mas dá a tendência de uso). Tráfego interno de infraestrutura já é excluído.",
+      "type": "barchart",
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "timeFrom": "30d",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 26 },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "expr": "count(sum by (remote_addr) (count_over_time({client=~\"$client\"} | remote_addr != \"\" | remote_addr !~ `^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.|127\\.)` [$__interval])))",
+          "interval": "1d",
+          "legendFormat": "Visitantes únicos",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
     }
   ]
 }

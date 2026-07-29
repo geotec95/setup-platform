@@ -29,3 +29,21 @@ storage:
       path: /var/tempo/traces
     wal:
       path: /var/tempo/wal
+
+# Habilita "TraceQL metrics" (quantile_over_time, rate, etc. direto sobre os
+# spans já armazenados, sem precisar de um Prometheus remote-write separado
+# nem de Kafka) -- usado pelos painéis de latência p95 e taxa de erro por
+# endpoint na aba Traces do dashboard de cliente.
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [local-blocks]
+
+metrics_generator:
+  processor:
+    local_blocks:
+      flush_to_storage: true
+  storage:
+    path: /var/tempo/generator/wal
+  traces_storage:
+    path: /var/tempo/generator/traces

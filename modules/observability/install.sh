@@ -148,6 +148,7 @@ cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-overview.json" "${CON
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-metrics.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-metrics.json"
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-traces.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-traces.json"
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-logs.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-logs.json"
+cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-host.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-host.json"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-contactpoints.yml" "${CONF_DIR}/grafana/provisioning/alerting/contactpoints.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-policies.yml"     "${CONF_DIR}/grafana/provisioning/alerting/policies.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-rules.yml"       "${CONF_DIR}/grafana/provisioning/alerting/rules.yml"

@@ -260,12 +260,13 @@ sp::cd::grafana_admin_api_org "$ORG_ID" POST "/api/org/users" \
 # wrapper.html.tpl) -- um dashboard inteiro por aba, embutido como 1 iframe
 # só (não painel a painel), então cada um já vem com Visão Geral / Métricas /
 # Traces / Logs organizados como o Grafana os desenhou.
-PUBLISHABLE_DASHBOARD_UIDS=("client-overview" "client-metrics" "client-traces" "client-logs")
+PUBLISHABLE_DASHBOARD_UIDS=("client-overview" "client-metrics" "client-traces" "client-logs" "client-host")
 declare -A DASHBOARD_TAB=(
   [client-overview]="overview"
   [client-metrics]="metrics"
   [client-traces]="traces"
   [client-logs]="logs"
+  [client-host]="host"
 )
 
 sp::info "Copiando dashboards padrão (allowlist) para a org do cliente..."
@@ -357,6 +358,7 @@ TAB_OVERVIEW_HTML=""
 TAB_METRICS_HTML=""
 TAB_TRACES_HTML=""
 TAB_LOGS_HTML=""
+TAB_HOST_HTML=""
 for i in "${!PANEL_URLS[@]}"; do
   url="${PANEL_URLS[$i]}"
   title="${PANEL_TITLES[$i]}"
@@ -370,12 +372,14 @@ for i in "${!PANEL_URLS[@]}"; do
     metrics)  TAB_METRICS_HTML+="$card" ;;
     traces)   TAB_TRACES_HTML+="$card" ;;
     logs)     TAB_LOGS_HTML+="$card" ;;
+    host)     TAB_HOST_HTML+="$card" ;;
   esac
 done
 [[ -z "$TAB_OVERVIEW_HTML" ]] && TAB_OVERVIEW_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
 [[ -z "$TAB_METRICS_HTML"  ]] && TAB_METRICS_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
 [[ -z "$TAB_TRACES_HTML"   ]] && TAB_TRACES_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
 [[ -z "$TAB_LOGS_HTML"     ]] && TAB_LOGS_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
+[[ -z "$TAB_HOST_HTML"     ]] && TAB_HOST_HTML="      <div class=\"empty-tab\">Nenhum painel disponível ainda.</div>"$'\n'
 
 DATA_DIR="$(sp::ensure_data_dir "client-dashboard/${CLIENT_SLUG}")"
 mkdir -p "${DATA_DIR}/html"
@@ -399,6 +403,7 @@ sed \
   | awk -v html="$TAB_TRACES_HTML"   '{gsub(/{{TAB_TRACES_PANELS}}/, html); print}' \
   | awk -v uri="$REMAP_LOGO_DATA_URI" '{gsub(/{{REMAP_LOGO_DATA_URI}}/, uri); print}' \
   | awk -v html="$TAB_LOGS_HTML"     '{gsub(/{{TAB_LOGS_PANELS}}/, html); print}' \
+  | awk -v html="$TAB_HOST_HTML"     '{gsub(/{{TAB_HOST_PANELS}}/, html); print}' \
   > "${DATA_DIR}/html/index.html"
 
 sp::ok "Wrapper HTML gerado em ${DATA_DIR}/html/index.html"

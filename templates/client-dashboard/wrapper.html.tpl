@@ -9,6 +9,7 @@
        {{TAB_METRICS_PANELS}}   - painéis da aba "Métricas" (client-metrics.json)
        {{TAB_TRACES_PANELS}}    - painéis da aba "Traces" (client-traces.json)
        {{TAB_LOGS_PANELS}}      - painéis da aba "Logs" (client-logs.json)
+       {{TAB_HOST_PANELS}}      - painéis da aba "Host e Containers" (client-host.json)
        {{REPORT_GENERATE_URL}}  - webhook n8n que dispara o relatório mensal
                                   sob demanda (path único por cliente, ver
                                   modules/client-dashboard/new-client.sh)
@@ -424,6 +425,7 @@
     <button type="button" data-tab="metrics" role="tab" aria-selected="false">Métricas</button>
     <button type="button" data-tab="traces" role="tab" aria-selected="false">Traces</button>
     <button type="button" data-tab="logs" role="tab" aria-selected="false">Logs</button>
+    <button type="button" data-tab="host" role="tab" aria-selected="false">Host e Containers</button>
     <button type="button" data-tab="report" role="tab" aria-selected="false">Relatório</button>
   </nav>
 
@@ -446,6 +448,11 @@
     <div class="tab-panel" id="tab-logs">
       <div class="panels-grid">
         {{TAB_LOGS_PANELS}}
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-host">
+      <div class="panels-grid">
+        {{TAB_HOST_PANELS}}
       </div>
     </div>
     <div class="tab-panel" id="tab-report">
