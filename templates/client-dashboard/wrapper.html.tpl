@@ -119,7 +119,7 @@
   }
 
   .partner-brand img {
-    height: 22px;
+    height: 34px;
     width: auto;
     display: block;
     background: #fff;
@@ -397,7 +397,7 @@
     header { padding: 12px 16px; }
     header h1 { font-size: 13px; }
     .partner-brand { padding-right: 8px; }
-    .partner-brand img { height: 18px; }
+    .partner-brand img { height: 24px; }
     nav.tabs { padding: 0 16px; top: 57px; }
     main { padding: 16px; }
     .panels-grid { grid-template-columns: 1fr; }
