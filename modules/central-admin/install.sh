@@ -46,6 +46,11 @@ sed \
   | awk -v uri="$REMAP_LOGO_DATA_URI" '{gsub(/{{REMAP_LOGO_DATA_URI}}/, uri); print}' \
   > "${DATA_DIR}/index.html"
 
+# nginx:alpine roda como usuário não-root -- sem isso, sp::ensure_data_dir
+# cria a pasta 750 (só root entra) e o container recusa tudo com 403,
+# mesmo com o arquivo em si legível (mesmo bug já visto no observability).
+chmod -R a+rX "${DATA_DIR}"
+
 {
   echo "DOMAIN=${DOMAIN}"
   echo "PROVISION_WEBHOOK_URL=${PROVISION_WEBHOOK_URL}"
