@@ -47,7 +47,9 @@ scrape_configs:
       - labels:
           level:
       # Mesmo tratamento do observability/promtail-config.yml: extrai o IP de
-      # origem só quando a linha tem formato de log de acesso HTTP.
+      # origem só quando a linha tem formato de log de acesso HTTP. Também
+      # tolera X-Forwarded-For com múltiplos IPs separados por vírgula
+      # (comum em app atrás de load balancer) -- pega sempre o primeiro.
       - regex:
-          expression: '^(?P<remote_addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s\S+\s\S+\s\[.+?\]\s"(?P<http_method>[A-Z]+)\s(?P<request_path>\S+)'
+          expression: '^(?P<remote_addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:,\s*[\d.,\s]+)?\s\S+\s\S+\s\[.+?\]\s"(?P<http_method>[A-Z]+)\s(?P<request_path>\S+)'
 {{GEOIP_STAGES}}
