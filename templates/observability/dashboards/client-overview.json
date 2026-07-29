@@ -25,7 +25,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Serviços online",
+      "title": "Sondas de monitoramento ativas",
+      "description": "Quantidade de sondas respondendo neste servidor (infraestrutura + aplicação) -- NÃO é o número de containers da aplicação em execução. Ex: 3 = servidor + containers + app monitorados, mesmo com só 1 container de app rodando.",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
