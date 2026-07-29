@@ -21,7 +21,7 @@
           "refId": "A",
           "datasource": { "type": "tempo", "uid": "Tempo" },
           "queryType": "traceqlSearch",
-          "query": "{resource.client=\"$client\"}",
+          "query": "{resource.client=\"$client\" && span.http.target !~ \"^/health.*\" && span.http.target !~ \"^/metrics.*\"}",
           "limit": 50,
           "tableType": "traces"
         }
