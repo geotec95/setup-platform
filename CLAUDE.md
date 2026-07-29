@@ -54,6 +54,8 @@ setup-platform/
 
 Ver `HANDOFF.md` para a lista completa de funcionalidades entregues (relatório mensal em PDF, geolocalização de IP, provisionamento automático de cliente, etc.) e o estado real de produção (já roda em EC2 real, não é mais só protótipo).
 
+**Ambiente do cliente WRI/AMZ BIOECON hoje é DEV, não produção** — `wri.remapgeo.com` (frontend) e `api-dev-wri.remapgeo.com` (backend) são só o ambiente de testes desta fase de validação do monitoramento. A URL de produção real ainda vai ser configurada separadamente; não tratar tráfego observado nesses domínios como uso real de usuário final.
+
 ## Antes de rodar qualquer coisa
 
 Os scripts `.sh` deste repo ainda não têm permissão de execução (`chmod +x`) — o ambiente onde foram gerados não tinha acesso de shell à pasta. Primeira coisa a fazer numa sessão nova:

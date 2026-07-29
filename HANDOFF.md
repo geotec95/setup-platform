@@ -14,6 +14,10 @@ Isto não é mais só um instalador — hoje roda de verdade em duas EC2s:
 - **EC2 do cliente WRI/AMZ BIOECON** (conta `remap`, perfil AWS `remap`, `i-0f1878229ca3ed754`, nome da instância `wri-bioeconomy-backend-development`): `remote-agent` empurrando métricas/logs pro observability central.
 - Domínios reais: `grafana.arcuscloud.com.br`, `ingest.arcuscloud.com.br`, `central.arcuscloud.com.br`, `wri.arcuscloud.com.br`, `n8n.arcuscloud.com.br` — todos com Cloudflare Access na frente (exceto o endpoint de ingestão, que usa Basic Auth).
 
+### Ambiente atual do cliente é DEV, não produção
+
+**Importante — não confundir em análises futuras:** `wri.remapgeo.com` (frontend) e `api-dev-wri.remapgeo.com` (backend, atrás de um ALB da AWS: `wri-api-dev-alb-...elb.amazonaws.com`) são o **ambiente de desenvolvimento** do cliente, usado só pra testes desta fase de validação do monitoramento. A URL de produção real vai ser outra (ainda não definida/monitorada). Todo tráfego observado até agora nesses domínios é tráfego de teste, não de usuário final real — tratar como tal em qualquer relatório ou análise de uso.
+
 ## Módulos existentes (`modules/`)
 
 | Módulo | O que faz |
@@ -66,6 +70,9 @@ Formulário em `central.arcuscloud.com.br` → webhook n8n → cria em paralelo:
 - **`geoip` e `structured_metadata` juntos no mesmo stage** — IP privado sem match na base MaxMind fazia o lookup falhar e arrastava junto a perda do `remote_addr` que já tinha sido extraído. Corrigido separando em dois stages.
 - **Disco da EC2 central em 94%** (imagens Docker duplicadas/antigas, 14GB) — causava o ingester do Loki entrar em loop de "shutting down" e recusar logs. Resolvido com `docker image prune -a` (voltou pra 79%). **Vale monitorar isso periodicamente — não há alerta de disco configurado ainda.**
 - **`instant: true` sozinho não faz o Grafana rodar como consulta instantânea** — precisa de `queryType: "instant"` + `range: false` junto, senão os painéis de tabela mostram série temporal (uma linha por timestamp) em vez de uma linha por grupo.
+- **Aba Traces mostrava health-check/scrape como se fosse endpoint de negócio** — mesmo problema já visto no relatório mensal, agora corrigido também na TraceQL do painel (`span.http.target !~ "/health.*"` e `!~ "/metrics.*"`, atributo confirmado direto num trace real via API do Tempo).
+- **IP de origem some quando o app roda atrás de load balancer** (caso real do backend do cliente, atrás de ALB) — o access log do Django/Gunicorn por padrão registra o IP de quem conectou diretamente (o próprio ALB), não o do visitante, a menos que o app leia e logue o header `X-Forwarded-For`. Nossa extração de IP já foi deixada tolerante a esse formato (`IP_real, IP_proxy1, ...`, sempre pega o primeiro), mas o app do cliente ainda precisa ser ajustado pra logar isso — ver "Pendências" abaixo.
+- **Erros constantes `Failed to export metrics to localhost:4317`** — não é bug nosso: é o exportador de métricas do OpenTelemetry no Django do cliente (adicionado numa sessão anterior, a pedido nosso, só pra habilitar traces) tentando exportar métricas via OTLP sem endpoint configurado, usando o default `localhost:4317` que não existe. Como as métricas já chegam via scrape do Prometheus (`/metrics`), essa exportação OTLP de métricas é redundante — a correção é o time de dev do backend setar `OTEL_METRICS_EXPORTER=none`, mantendo `OTEL_TRACES_EXPORTER=otlp` (que já está certo, os traces já chegam em `https://ingest.arcuscloud.com.br/v1/traces`).
 
 ## Pendências conhecidas / dívida técnica
 
@@ -74,6 +81,7 @@ Formulário em `central.arcuscloud.com.br` → webhook n8n → cria em paralelo:
 - Não há alerta de espaço em disco na própria EC2 (o incidente do Loki em 94% só foi pego por investigação manual).
 - Retenção do Loki fixa em 30 dias pra todo mundo (não é por contrato/tier).
 - `bin/bootstrap.sh` ainda não publicado (falta `SP_REPO_URL` apontando pro repo real).
+- **Pendente do lado do cliente (não é ação nossa no repo):** o dev do backend precisa (1) setar `OTEL_METRICS_EXPORTER=none` no Django pra parar o erro de exportação OTLP quebrada, e (2) configurar o access log do Gunicorn pra usar `X-Forwarded-For` em vez do IP direto (`%h`), já que o app roda atrás de um ALB — sem isso, a geolocalização nunca vai mostrar o IP/país real do visitante, só o do próprio load balancer.
 
 ## Próximos passos sugeridos (em ordem)
 
