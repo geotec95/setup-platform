@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central Arcus — Novo Cliente</title>
+<style>
+  :root {
+    --ink: #17231b;
+    --paper: #FAFAF7;
+    --paper-raised: #FFFFFF;
+    --line: #E3E5DD;
+    --muted: #6b7268;
+    --accent: #f8591c;
+    --dark: #022601;
+    --ok: #2f7a4f;
+    --err: #b8790a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    background: var(--dark); color: #fff;
+    padding: 20px 32px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header img { height: 30px; background: #fff; border-radius: 6px; padding: 4px 8px; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 700; }
+  header span { font-size: 12px; color: #cfd8d1; display: block; margin-top: 2px; }
+  main { max-width: 640px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  .lead { color: var(--muted); font-size: 13.5px; margin: 0 0 32px; max-width: 52ch; line-height: 1.55; }
+  form { display: flex; flex-direction: column; gap: 18px; }
+  label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px; }
+  .hint { font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 4px; }
+  input[type="text"], input[type="email"] {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--paper-raised);
+    font: inherit; font-size: 13.5px; color: var(--ink);
+  }
+  input[type="text"]:focus, input[type="email"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .color-row { display: flex; align-items: center; gap: 10px; }
+  input[type="color"] { width: 44px; height: 38px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--paper-raised); cursor: pointer; }
+  .file-drop {
+    border: 1.5px dashed var(--line); border-radius: 10px;
+    padding: 22px; text-align: center; cursor: pointer;
+    background: var(--paper-raised); font-size: 13px; color: var(--muted);
+    transition: border-color .15s ease;
+  }
+  .file-drop.has-file { border-color: var(--accent); color: var(--ink); }
+  .file-drop input { display: none; }
+  .preview { margin-top: 10px; max-height: 60px; }
+  button {
+    appearance: none; border: none; border-radius: 8px;
+    background: var(--accent); color: #fff; font: inherit; font-weight: 700;
+    font-size: 14px; padding: 13px 20px; cursor: pointer; margin-top: 8px;
+  }
+  button:disabled { opacity: .55; cursor: default; }
+  .result {
+    margin-top: 20px; padding: 14px 16px; border-radius: 8px; font-size: 13.5px; display: none;
+  }
+  .result.ok { display: block; background: rgba(47,122,79,.1); border: 1px solid rgba(47,122,79,.3); color: var(--ok); }
+  .result.err { display: block; background: rgba(184,121,10,.1); border: 1px solid rgba(184,121,10,.3); color: var(--err); }
+  .result a { color: inherit; font-weight: 700; }
+</style>
+</head>
+<body>
+  <header>
+    <img src="{{REMAP_LOGO_DATA_URI}}" alt="Remap Geotecnologia">
+    <div>
+      <h1>Central Arcus</h1>
+      <span>Provisionamento de dashboards de cliente</span>
+    </div>
+  </header>
+
+  <main>
+    <h2>Novo cliente</h2>
+    <p class="lead">Preencha os dados abaixo para criar automaticamente o dashboard, o DNS, a proteção de acesso e o fluxo de relatório mensal deste cliente.</p>
+
+    <form id="form-novo-cliente">
+      <div>
+        <label for="client_name">Nome do cliente</label>
+        <input type="text" id="client_name" name="client_name" required placeholder="Ex: AMZ Bioecon">
+      </div>
+
+      <div>
+        <label for="client_slug">Subdomínio</label>
+        <input type="text" id="client_slug" name="client_slug" required placeholder="Ex: amzbioecon" pattern="[a-z0-9-]+">
+        <div class="hint">Vira <strong id="domain-preview">seu-slug.arcuscloud.com.br</strong></div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="client_email_to">E-mail do responsável</label>
+          <input type="email" id="client_email_to" name="client_email_to" required placeholder="contato@cliente.com">
+          <div class="hint">Recebe os relatórios e o acesso ao dashboard</div>
+        </div>
+        <div>
+          <label for="client_contact_name">Nome do responsável</label>
+          <input type="text" id="client_contact_name" name="client_contact_name" placeholder="Opcional">
+        </div>
+      </div>
+
+      <div>
+        <label for="client_primary_color">Cor de destaque</label>
+        <div class="color-row">
+          <input type="color" id="client_primary_color" name="client_primary_color" value="#0EA5E9">
+          <span class="hint" id="color-hex">#0EA5E9</span>
+        </div>
+      </div>
+
+      <div>
+        <label>Logo do cliente</label>
+        <label class="file-drop" id="file-drop">
+          <span id="file-drop-label">Clique para escolher um arquivo (PNG ou SVG)</span>
+          <input type="file" id="logo" name="logo" accept="image/png,image/svg+xml" required>
+          <img class="preview" id="logo-preview" style="display:none;">
+        </label>
+      </div>
+
+      <button type="submit" id="submit-btn">Criar dashboard</button>
+
+      <div class="result" id="result"></div>
+    </form>
+  </main>
+
+  <script>
+    (function () {
+      var PROVISION_URL = "{{PROVISION_WEBHOOK_URL}}";
+
+      var slugInput = document.getElementById("client_slug");
+      var domainPreview = document.getElementById("domain-preview");
+      slugInput.addEventListener("input", function () {
+        var slug = slugInput.value.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+        domainPreview.textContent = (slug || "seu-slug") + ".arcuscloud.com.br";
+      });
+
+      var colorInput = document.getElementById("client_primary_color");
+      var colorHex = document.getElementById("color-hex");
+      colorInput.addEventListener("input", function () { colorHex.textContent = colorInput.value; });
+
+      var fileInput = document.getElementById("logo");
+      var fileDrop = document.getElementById("file-drop");
+      var fileLabel = document.getElementById("file-drop-label");
+      var preview = document.getElementById("logo-preview");
+      fileInput.addEventListener("change", function () {
+        var file = fileInput.files[0];
+        if (!file) return;
+        fileLabel.textContent = file.name;
+        fileDrop.classList.add("has-file");
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          preview.src = e.target.result;
+          preview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      });
+
+      var form = document.getElementById("form-novo-cliente");
+      var btn = document.getElementById("submit-btn");
+      var result = document.getElementById("result");
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        btn.disabled = true;
+        btn.textContent = "Criando...";
+        result.className = "result";
+        result.style.display = "none";
+
+        var fd = new FormData(form);
+        fetch(PROVISION_URL, { method: "POST", body: fd })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              result.className = "result ok";
+              result.innerHTML = data.message + "<br><a href=\"https://" + data.dashboard_url.replace(/^https?:\/\//, "") + "\" target=\"_blank\">" + data.dashboard_url + "</a>";
+              form.reset();
+              fileDrop.classList.remove("has-file");
+              fileLabel.textContent = "Clique para escolher um arquivo (PNG ou SVG)";
+              preview.style.display = "none";
+            } else {
+              result.className = "result err";
+              result.textContent = data.error || "Não foi possível criar o cliente agora.";
+            }
+          })
+          .catch(function () {
+            result.className = "result err";
+            result.textContent = "Falha de conexão. Tente novamente em instantes.";
+          })
+          .finally(function () {
+            btn.disabled = false;
+            btn.textContent = "Criar dashboard";
+            result.style.display = "block";
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

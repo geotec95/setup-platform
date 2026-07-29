@@ -1,0 +1,520 @@
+{
+  "name": "Provisionar Novo Cliente",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "provision-client",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryPropertyName": "logo"
+        }
+      },
+      "id": "p0001",
+      "name": "Webhook Novo Cliente",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2400,
+        300
+      ],
+      "webhookId": "provision-client",
+      "notes": "Recebe multipart/form-data do formulario da area central: client_slug, client_name, client_email_to, client_contact_name, client_primary_color, e o arquivo 'logo'."
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst body = item.json.body || {};\nconst slug = (body.client_slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '-');\nconst domain = `${slug}.arcuscloud.com.br`;\n// O n8n nomeia o campo binario com um sufixo (ex: 'logo0'), nao exatamente\n// 'logo' -- pega a primeira propriedade binaria disponivel. E o conteudo\n// real (quando o n8n guarda binarios em disco, nao em memoria) precisa\n// ser lido via helper, .data sozinho e so uma referencia interna\n// (ex: 'filesystem-v2:...'), nao a string base64 de verdade.\nlet logoDataUri = '';\nlet logoMime = '';\nif (item.binary) {\n  const keys = Object.keys(item.binary);\n  if (keys.length) {\n    const propName = keys[0];\n    const meta = item.binary[propName];\n    const buffer = await this.helpers.getBinaryDataBuffer(0, propName);\n    logoDataUri = `data:${meta.mimeType};base64,${buffer.toString('base64')}`;\n    logoMime = meta.mimeType;\n  }\n}\nreturn [{\n  json: {\n    client_slug: slug,\n    client_domain: domain,\n    client_name: body.client_name || slug,\n    client_email_to: body.client_email_to || '',\n    client_contact_name: body.client_contact_name || '',\n    client_primary_color: body.client_primary_color || '#0EA5E9',\n    logo_data_uri: logoDataUri,\n    logo_mime: logoMime,\n  }\n}];\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "p0002",
+      "name": "Preparar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.client_slug }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "leftValue": "={{ $json.client_email_to }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "leftValue": "={{ $json.logo_data_uri }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "p0003",
+      "name": "Dados válidos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"Preencha slug, e-mail do responsável e envie um logo.\" } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "p0004",
+      "name": "Erro: dados incompletos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1740,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudflare.com/client/v4/zones/8e4c403c9d3ce33951dd9fc493a9c2e1/dns_records",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: \"A\", name: $json.client_domain, content: \"54.164.39.142\", proxied: true, ttl: 1 }) }}",
+        "options": {}
+      },
+      "id": "p0005",
+      "name": "Criar DNS (Cloudflare)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1740,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nod17yURzV6cIyN1",
+          "name": "Cloudflare (provisionamento)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudflare.com/client/v4/accounts/076e7a9592ffd37f0a90cc043a543ede/access/apps",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: \"Dashboard \" + $('Preparar Dados').first().json.client_name, domain: $('Preparar Dados').first().json.client_domain, type: \"self_hosted\", session_duration: \"24h\", app_launcher_visible: false }) }}",
+        "options": {}
+      },
+      "id": "p0006",
+      "name": "Criar Access App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nod17yURzV6cIyN1",
+          "name": "Cloudflare (provisionamento)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://api.cloudflare.com/client/v4/accounts/076e7a9592ffd37f0a90cc043a543ede/access/apps/\" + $json.result.id + \"/policies\" }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: \"Equipe \" + $('Preparar Dados').first().json.client_name, decision: \"allow\", include: [ { email: { email: $('Preparar Dados').first().json.client_email_to } } ] }) }}",
+        "options": {}
+      },
+      "id": "p0007",
+      "name": "Criar Access Policy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1300,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nod17yURzV6cIyN1",
+          "name": "Cloudflare (provisionamento)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://n8n.arcuscloud.com.br/api/v1/workflows/GQ2SGg5l07P26Hq9",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "p0008",
+      "name": "Buscar Template Relatório",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1740,
+        380
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EUIaVnXJRaxf8kVL",
+          "name": "n8n Self API (X-N8N-API-KEY)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Preparar Dados').first().json;\nconst tpl = $input.first().json;\nconst nodesCopy = JSON.parse(JSON.stringify(tpl.nodes));\nfor (const n of nodesCopy) {\n  if (n.name === 'Configuração') {\n    for (const a of n.parameters.assignments.assignments) {\n      if (a.name === 'client_slug') a.value = cfg.client_slug;\n      else if (a.name === 'client_name') a.value = cfg.client_name;\n      else if (a.name === 'client_email_to') a.value = cfg.client_email_to;\n      else if (a.name === 'client_logo_url') a.value = cfg.logo_data_uri;\n      else if (a.name === 'client_primary_color') a.value = cfg.client_primary_color;\n    }\n  }\n  if (n.name === 'Webhook Gerar Agora') {\n    n.parameters.path = 'report-generate-' + cfg.client_slug;\n    n.webhookId = 'report-generate-' + cfg.client_slug;\n  }\n}\nconst payload = {\n  name: 'Relatório Mensal — ' + cfg.client_name,\n  nodes: nodesCopy,\n  connections: tpl.connections,\n  settings: tpl.settings,\n};\nreturn [{ json: payload }];\n"
+      },
+      "id": "p0009",
+      "name": "Montar Workflow do Cliente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.arcuscloud.com.br/api/v1/workflows",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "p0010",
+      "name": "Criar Workflow do Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1300,
+        380
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EUIaVnXJRaxf8kVL",
+          "name": "n8n Self API (X-N8N-API-KEY)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://n8n.arcuscloud.com.br/api/v1/workflows/\" + $json.id + \"/activate\" }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "p0011",
+      "name": "Ativar Workflow do Cliente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1080,
+        380
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EUIaVnXJRaxf8kVL",
+          "name": "n8n Self API (X-N8N-API-KEY)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "p0012",
+      "name": "Aguardar Tudo",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Preparar Dados').first().json;\nconst newWfId = $('Criar Workflow do Cliente').first().json.id;\nconst ext = (cfg.logo_mime || '').includes('svg') ? 'svg' : 'png';\nconst logoB64 = (cfg.logo_data_uri || '').split(',')[1] || '';\nconst genUrl = `https://n8n.arcuscloud.com.br/webhook/report-generate-${cfg.client_slug}`;\nconst histUrl = `https://n8n.arcuscloud.com.br/webhook/report-history?workflow_id=${newWfId}`;\nconst safeName = cfg.client_name.replace(/\"/g, '');\nconst commands = [\n  'set -e',\n  'export HOME=/root',\n  'cd /opt/setup-platform 2>/dev/null || cd /root/setup-platform',\n  'git pull --ff-only',\n  \"echo '\" + logoB64 + \"' | base64 -d > /tmp/prov-logo.\" + ext,\n  'export REPORT_GENERATE_URL=' + genUrl,\n  'export REPORT_HISTORY_URL=' + histUrl,\n  'LOGO_URI=\"data:' + cfg.logo_mime + ';base64,$(base64 -w0 /tmp/prov-logo.' + ext + ')\"',\n  'bash modules/client-dashboard/new-client.sh ' + cfg.client_slug + ' ' + cfg.client_domain + ' \"' + cfg.client_primary_color + '\" \"$LOGO_URI\" \"' + safeName + '\"',\n];\nreturn [{ json: { commands, client_domain: cfg.client_domain, client_name: cfg.client_name, new_workflow_id: newWfId } }];\n"
+      },
+      "id": "p0013",
+      "name": "Montar Comando SSM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ssm.us-east-1.amazonaws.com/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "aws",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Amz-Target",
+              "value": "AmazonSSM.SendCommand"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-amz-json-1.1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ DocumentName: \"AWS-RunShellScript\", InstanceIds: [\"i-05fd28179b086c305\"], Parameters: { commands: $json.commands }, TimeoutSeconds: 300 }) }}",
+        "options": {}
+      },
+      "id": "p0014",
+      "name": "Provisionar via SSM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -420,
+        300
+      ],
+      "credentials": {
+        "aws": {
+          "id": "FATa1c8iYuyfYic3",
+          "name": "AWS SSM (provisionamento restrito)"
+        }
+      },
+      "notes": "TimeoutSeconds alto porque new-client.sh cria org+dashboards no Grafana e aguarda emissao de certificado SSL -- pode levar mais de 1 minuto."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"message\": \"Provisionamento disparado. O dashboard fica disponivel em alguns minutos (certificado SSL + politica de acesso).\", \"dashboard_url\": \"https://\" + $('Montar Comando SSM').first().json.client_domain, \"client_name\": $('Montar Comando SSM').first().json.client_name } }}",
+        "options": {}
+      },
+      "id": "p0015",
+      "name": "Responder Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -200,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Novo Cliente": {
+      "main": [
+        [
+          {
+            "node": "Preparar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Dados": {
+      "main": [
+        [
+          {
+            "node": "Dados válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados válidos?": {
+      "main": [
+        [
+          {
+            "node": "Criar DNS (Cloudflare)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Template Relatório",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Erro: dados incompletos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar DNS (Cloudflare)": {
+      "main": [
+        [
+          {
+            "node": "Criar Access App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Access App": {
+      "main": [
+        [
+          {
+            "node": "Criar Access Policy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Template Relatório": {
+      "main": [
+        [
+          {
+            "node": "Montar Workflow do Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Workflow do Cliente": {
+      "main": [
+        [
+          {
+            "node": "Criar Workflow do Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Workflow do Cliente": {
+      "main": [
+        [
+          {
+            "node": "Ativar Workflow do Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Access Policy": {
+      "main": [
+        [
+          {
+            "node": "Aguardar Tudo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ativar Workflow do Cliente": {
+      "main": [
+        [
+          {
+            "node": "Aguardar Tudo",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Aguardar Tudo": {
+      "main": [
+        [
+          {
+            "node": "Montar Comando SSM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Comando SSM": {
+      "main": [
+        [
+          {
+            "node": "Provisionar via SSM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provisionar via SSM": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "description": "Motor de automacao da area central: recebe o formulario de novo cliente (multipart com upload de logo), cria DNS + Cloudflare Access, duplica o workflow TEMPLATE de relatorio mensal, e roda new-client.sh via SSM (credencial IAM restrita, so ssm:SendCommand nessa instancia -- ver modules/client-dashboard/new-client.sh). Requer 3 credenciais no n8n: Cloudflare (httpHeaderAuth, Bearer token com Zone:DNS:Edit + Account:Access Apps and Policies:Edit), n8n Self API (httpHeaderAuth, X-N8N-API-KEY), AWS SSM (aws, IAM restrito). IDs de credencial/zona/conta estao hardcoded nos nodes -- ajustar se reusar em outra conta Cloudflare/AWS."
+  },
+  "tags": [
+    {
+      "name": "provisioning"
+    },
+    {
+      "name": "admin"
+    }
+  ]
+}

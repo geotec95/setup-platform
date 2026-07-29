@@ -1,0 +1,27 @@
+version: "3.8"
+
+# Área administrativa (formulário de provisionamento de novo cliente) --
+# HTML/CSS/JS estático puro, nginx só servindo arquivo (mesmo padrão do
+# module client-dashboard). O "backend" de verdade é o webhook do n8n pra
+# onde o formulário faz POST (ver templates/n8n-workflows/provision-client.json).
+services:
+  web:
+    image: nginx:alpine
+    volumes:
+      - /data/central-admin/html:/usr/share/nginx/html:ro
+    networks:
+      - rede_publica
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.central-admin.rule=Host(`${DOMAIN}`)"
+        - "traefik.http.routers.central-admin.entrypoints=websecure"
+        - "traefik.http.routers.central-admin.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.central-admin.loadbalancer.server.port=80"
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  rede_publica:
+    external: true

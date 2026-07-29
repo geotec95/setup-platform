@@ -1,0 +1,26 @@
+name: "Central Arcus (área administrativa)"
+slug: central-admin
+category: dashboard
+description: >-
+  Área administrativa (central.SEUDOMINIO.com.br) com o formulário de
+  provisionamento de novo cliente: nome, subdomínio, e-mail do responsável,
+  cor e logo. O envio dispara o workflow n8n de automação (ver
+  templates/n8n-workflows/provision-client.json), que cria DNS, Cloudflare
+  Access, duplica o workflow de relatório mensal e roda new-client.sh via
+  SSM -- tudo sem intervenção manual.
+requires:
+  - docker
+  - reverse_proxy
+ports:
+  - "80"
+domains:
+  - "central.SEUDOMINIO.com.br"
+env_required:
+  - DOMAIN
+volumes: []
+install_strategy: docker_compose
+healthcheck:
+  type: http
+  url: "http://localhost/"
+validate_command: "docker ps --format '{{.Names}}' | grep -q '^central-admin_'"
+uninstall_strategy: docker_compose_down
