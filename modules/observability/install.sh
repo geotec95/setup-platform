@@ -126,6 +126,13 @@ cp -f "${SP_TEMPLATES_DIR}/observability/grafana-datasources.yml"         "${CON
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-dashboards-provisioning.yml" "${CONF_DIR}/grafana/provisioning/dashboards/dashboards.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/docker-overview.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/docker-overview.json"
 cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/remote-clients.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/remote-clients.json"
+# client-*.json ficam na Org 1 só como "molde": new-client.sh lê cada um daqui
+# via API (GET /api/dashboards/uid/<uid>) e reimporta uma cópia por org de
+# cliente -- não expor esses direto, servem só de fonte pro clone.
+cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-overview.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-overview.json"
+cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-metrics.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-metrics.json"
+cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-traces.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-traces.json"
+cp -f "${SP_TEMPLATES_DIR}/observability/dashboards/client-logs.json" "${CONF_DIR}/grafana/provisioning/dashboards/json/client-logs.json"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-contactpoints.yml" "${CONF_DIR}/grafana/provisioning/alerting/contactpoints.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-policies.yml"     "${CONF_DIR}/grafana/provisioning/alerting/policies.yml"
 cp -f "${SP_TEMPLATES_DIR}/observability/grafana-alerting-rules.yml"       "${CONF_DIR}/grafana/provisioning/alerting/rules.yml"
