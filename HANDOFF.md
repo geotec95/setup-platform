@@ -1,55 +1,87 @@
 # HANDOFF.md
 
-Contexto de handoff para retomar este projeto numa sessão nova (Claude Code no terminal ou qualquer outra ferramenta). Escrito em 2026-07-26.
+Contexto de handoff para retomar este projeto numa sessão nova (Claude Code no terminal ou qualquer outra ferramenta). Escrito originalmente em 2026-07-26, reescrito em 2026-07-29 após várias sessões de expansão — o projeto saiu de "instalador modular" pra "produto SaaS multi-cliente em produção real".
 
-## Ponto de partida
+## Ponto de partida (histórico)
 
-O usuário usava o [SetupOrion](https://github.com/oriondesign2015/SetupOrion) (`bash <(curl -sSL setup.oriondesign.art.br)`) para instalar ferramentas self-hosted (N8N, Grafana, etc.) em VPS. Em EC2 da AWS, o instalador detectava o IP **privado** em vez do público, porque scripts genéricos usam `hostname -I`/`ip addr` — e na AWS o IP público é NAT feito fora da interface de rede, então isso nunca funciona bem numa EC2.
+O usuário usava o [SetupOrion](https://github.com/oriondesign2015/SetupOrion) pra instalar ferramentas self-hosted em VPS. Em EC2 da AWS, o instalador detectava o IP **privado** em vez do público (scripts genéricos usam `hostname -I`, e na AWS o IP público é NAT fora da interface de rede). Em vez de remendar o script de terceiros, construímos um instalador próprio do zero: o `setup-platform`.
 
-Em vez de remendar o script de terceiros, decidimos construir um instalador próprio, modular, do zero: o `setup-platform`.
+## Estado atual: em produção real
 
-## O que foi construído nesta sessão
+Isto não é mais só um instalador — hoje roda de verdade em duas EC2s:
 
-Arquitetura 100% nova, seguindo a spec do projeto (ver `CLAUDE.md`). Todo o núcleo foi escrito diretamente; os 3 módulos de produto foram construídos por 3 subagentes em paralelo, cada um lendo o núcleo + o módulo `n8n` como referência de padrão antes de escrever código.
+- **EC2 central** (conta `geotec`, perfil AWS `geotec`, `i-05fd28179b086c305`): n8n, Grafana/Prometheus/Loki/Tempo (observability), central-admin, gotenberg, evolution-api, uptime-kuma.
+- **EC2 do cliente WRI/AMZ BIOECON** (conta `remap`, perfil AWS `remap`, `i-0f1878229ca3ed754`, nome da instância `wri-bioeconomy-backend-development`): `remote-agent` empurrando métricas/logs pro observability central.
+- Domínios reais: `grafana.arcuscloud.com.br`, `ingest.arcuscloud.com.br`, `central.arcuscloud.com.br`, `wri.arcuscloud.com.br`, `n8n.arcuscloud.com.br` — todos com Cloudflare Access na frente (exceto o endpoint de ingestão, que usa Basic Auth).
 
-### 1. Núcleo (`bin/`, `core/`, `providers/aws/detect.sh`)
-- `providers/aws/detect.sh`: resolve o bug do IP via **IMDSv2** (`sp::network::public_ip`) — detecta se é EC2, pega o IP público real via metadata service, com fallback pra `ifconfig.me` fora da AWS. Também tem `sp::aws::advise` (avisos de custo/segurança proativos: EIP não associado, Security Group aberto).
-- `core/common.sh`: biblioteca de funções (`sp::ok/warn/err/info/log/confirm/ask/gen_password/ensure_data_dir/yaml_get` etc.) usada por tudo.
-- `core/os.sh`, `core/docker.sh`, `core/proxy.sh` (Traefik + Let's Encrypt), `core/menu.sh` (menu gerado dinamicamente a partir dos manifests em `config/tools/*.yaml`), `core/logs.sh`, `core/validate.sh`.
-- `bin/setup.sh`: entrypoint local (`sudo bash bin/setup.sh`).
-- `bin/bootstrap.sh`: o que vai virar o "comando único" (`bash <(curl -sSL setup.SEUDOMINIO.com.br)`) — ainda **não publicado**, precisa de um repo Git + domínio apontando pra esse arquivo.
+## Módulos existentes (`modules/`)
 
-### 2. Módulo `n8n` (referência de padrão)
-Instala N8N via Docker Swarm + Traefik/HTTPS. Todo módulo novo copia esse padrão.
+| Módulo | O que faz |
+|---|---|
+| `n8n` | Automação (referência de padrão pros demais módulos) |
+| `aws-monitor` | Clone do AWS FinOps Agent (custo, segurança, recursos ociosos) |
+| `observability` | Prometheus + Grafana + Loki + Tempo + Promtail + cAdvisor + node-exporter, multi-org por cliente |
+| `client-dashboard` | Provisiona 1 cliente novo: org Grafana + wrapper HTML white-label + workflow n8n de relatório |
+| `remote-agent` | Agente leve (Prometheus agent + Promtail + cAdvisor + node-exporter) pra instalar na EC2 do CLIENTE, empurra tudo pro observability central via HTTPS |
+| `evolution-api` | Gateway WhatsApp self-hosted (alertas via WhatsApp) |
+| `uptime-kuma` | Uptime/disponibilidade de frontend e backend do cliente |
+| `gotenberg` | Conversor HTML→PDF self-hosted (usado pelo relatório mensal) |
+| `central-admin` | Área administrativa (`central.arcuscloud.com.br`): formulário que cria cliente novo automaticamente — DNS, Cloudflare Access, dashboard, workflow de relatório |
 
-### 3. Módulo `aws-monitor` (clone do AWS FinOps Agent)
-- `providers/aws/cost-report.sh`: custo 7d/30d, variação %, top 10 serviços, recursos ociosos (EIPs órfãos, EBS não anexado, instâncias paradas), status de budgets.
-- `providers/aws/security-report.sh`: Security Groups abertos em portas sensíveis, IAM sem MFA, access keys >90 dias, buckets S3 públicos, Security Hub/Trusted Advisor quando disponível.
-- `providers/aws/backup-s3.sh`, `route53.sh`, `cloudwatch.sh`: helpers genéricos reutilizáveis por qualquer módulo.
-- `providers/aws/iam-policy-aws-monitor.json`: política IAM de menor privilégio (anexar via Instance Profile, nunca via chave hardcoded).
-- `templates/n8n-workflows/aws-finops-report.json`: workflow N8N pronto pra importar (schedule semanal → roda os scripts → formata HTML → envia por e-mail/Slack).
-- `modules/aws-monitor/install.sh` tenta importar esse workflow automaticamente via API do n8n.
+## Funcionalidades entregues (além da infra básica)
 
-### 4. Módulo `observability`
-Prometheus + Grafana + Loki + Promtail + cAdvisor + node-exporter via Docker Swarm. Só o Grafana fica exposto (Traefik/HTTPS); Prometheus e Loki ficam só na rede interna. Dashboard básico já provisionado automaticamente (`templates/observability/dashboards/docker-overview.json`).
+### Dashboard de cliente (`client-dashboard` + wrapper)
+- 5 abas: Visão Geral, Métricas, Traces, Logs, **Relatório**.
+- Co-branding real: logo do cliente + logo da Remap lado a lado no header (não é mais ícone genérico).
+- Painel "Visão Geral" com rótulos revisados (ex: "Sondas de monitoramento ativas" em vez de "Serviços online", que confundia o cliente).
+- Aba "Logs" tem geolocalização de IP de origem (ver seção própria abaixo).
+- Aba "Relatório": botão "Gerar relatório agora" (dispara workflow n8n via webhook) + histórico de envios mês a mês (consulta `/api/v1/executions` do n8n via workflow `report-history-api.json`).
 
-### 5. Módulo `client-dashboard` (dashboard premium multi-cliente)
-Decisão de arquitetura: Grafana OSS não tem white-label nativo (é recurso Enterprise pago). Solução adotada: **1 Grafana compartilhado** (o do módulo `observability`) com **1 Organization por cliente** (isolamento via Grafana Orgs API) + um **wrapper HTML estático** com a marca do cliente (logo, cor) embutindo os painéis via iframe/public-dashboard. Cada cliente ganha subdomínio próprio + HTTPS via Traefik.
+### Relatório mensal em PDF (`templates/n8n-workflows/monthly-client-report.json`)
+- Redação executiva institucional (sem coloquialismo, distingue disponibilidade / volume técnico / uso real).
+- Identidade visual real da Remap Geotecnologia (Brand Book: paleta, tipografia Ubuntu embutida via `@font-face` base64, textura).
+- Logos reais do cliente + Remap lado a lado.
+- Disponibilidade por camada (Frontend/Backend via Uptime Kuma).
+- PDF gerado via Gotenberg (headless Chromium), nome do arquivo anexado = `<nome do cliente> - <mês>.pdf`.
+- Cada cliente tem seu próprio clone do workflow (feito a partir do template `GQ2SGg5l07P26Hq9`, nunca ativado).
 
-Uso: `bash modules/client-dashboard/new-client.sh <slug-cliente> <dominio-cliente> <cor-hex> <url-logo>`.
+### Provisionamento automático (`central-admin` + `provision-client.json`)
+Formulário em `central.arcuscloud.com.br` → webhook n8n → cria em paralelo: DNS Cloudflare + Cloudflare Access App/Policy, e workflow de relatório do cliente + org Grafana + wrapper via SSM (`new-client.sh`). Testado 2x de ponta a ponta com sucesso.
 
-## O que NÃO foi feito ainda
+### Geolocalização de IP de origem (mais recente, 2026-07-29)
+- Base MaxMind GeoLite2-City baixada via license key (`.env`, nunca commitada).
+- Promtail extrai `remote_addr` do log de acesso HTTP (regex), geolocaliza via stage nativo `geoip`, anexa país/cidade/coordenadas como **structured metadata** do Loki (não label — evita explosão de cardinalidade).
+- Painéis "Requisições por país" e "Top IPs de origem" na aba Logs, como consulta **instantânea** de verdade (`queryType: instant` + `range: false` — só `instant: true` sozinho não bastava, o Grafana ainda rodava como série temporal).
+- Aplicado tanto no `observability` quanto no `remote-agent` — feature opcional via placeholder `{{GEOIP_STAGES}}` (sem `MAXMIND_LICENSE_KEY`, vira comentário e nada muda).
 
-- **Nada foi testado numa EC2 real.** O ambiente onde isso foi gerado não tinha acesso de shell à pasta do projeto (erro de path UNC), então não rodamos `chmod +x`, não subimos containers, não validamos o fluxo ponta a ponta.
-- `bin/bootstrap.sh` não está publicado — falta criar o repo Git (GitHub) e apontar um domínio/endpoint pra ele.
-- Tracing distribuído (Tempo) e Alertmanager foram citados como próxima iteração do módulo `observability`, mas não implementados.
-- `client-dashboard` usa Grafana public-dashboards (iframe sem autenticação forte) — ok pra MVP, mas documentado como trade-off a revisitar se algum cliente exigir mais segurança.
+## Bugs reais encontrados e corrigidos nesta fase (vale saber pra não repetir)
+
+- **Datasources não compartilhados entre orgs do Grafana** — cada org precisa da própria cópia.
+- **`--update` do client-dashboard nunca trocava nome/logo/cor** — o `source` do `.env` genérico sobrescrevia as variáveis recém-digitadas; corrigido isolando em subshell.
+- **`topk` de endpoints incluía o próprio agente de monitoramento** como se fosse uso real — corrigido com filtro de exclusão na query PromQL.
+- **403 no central-admin** — pasta criada com permissão 750, nginx roda non-root; corrigido com `chmod -R a+rX`.
+- **Cloudflare Access não interceptava tráfego** — registro DNS estava "DNS only" (`proxied: false`); Access só funciona com proxy ativo.
+- **Dashboards `client-*.json` nunca eram copiados pelo `install.sh` do observability** — só existiam na EC2 porque foram colocados manualmente numa sessão anterior; uma instalação do zero teria falhado. Corrigido.
+- **Indentação YAML errada no bloco geoip** — derrubava o Promtail inteiro em loop de erro de parse.
+- **`geoip` e `structured_metadata` juntos no mesmo stage** — IP privado sem match na base MaxMind fazia o lookup falhar e arrastava junto a perda do `remote_addr` que já tinha sido extraído. Corrigido separando em dois stages.
+- **Disco da EC2 central em 94%** (imagens Docker duplicadas/antigas, 14GB) — causava o ingester do Loki entrar em loop de "shutting down" e recusar logs. Resolvido com `docker image prune -a` (voltou pra 79%). **Vale monitorar isso periodicamente — não há alerta de disco configurado ainda.**
+- **`instant: true` sozinho não faz o Grafana rodar como consulta instantânea** — precisa de `queryType: "instant"` + `range: false` junto, senão os painéis de tabela mostram série temporal (uma linha por timestamp) em vez de uma linha por grupo.
+
+## Pendências conhecidas / dívida técnica
+
+- Org "Cliente: Cliente Teste 2" (id 4) no Grafana é lixo de teste — a API recusou deletar, remoção manual pendente.
+- Org "AMZ BIOECON" tem **5 cópias duplicadas** do dashboard "Logs" (de reinstalações/testes anteriores) — não quebra nada, mas é sujeira a limpar.
+- Não há alerta de espaço em disco na própria EC2 (o incidente do Loki em 94% só foi pego por investigação manual).
+- Retenção do Loki fixa em 30 dias pra todo mundo (não é por contrato/tier).
+- `bin/bootstrap.sh` ainda não publicado (falta `SP_REPO_URL` apontando pro repo real).
 
 ## Próximos passos sugeridos (em ordem)
 
-1. `chmod +x bin/*.sh core/*.sh providers/aws/*.sh modules/*/*.sh` (ver `CLAUDE.md`).
-2. Subir uma EC2 de teste — ver `scripts/create_test_ec2.py` (criado junto com este handoff, usa `AWS_PROFILE=geotec`, `us-east-1`).
-3. Rodar `sudo bash bin/setup.sh` na EC2 de teste, instalar na ordem: base do servidor → Traefik → n8n → observability → aws-monitor → client-dashboard.
-4. Validar que `sp::network::public_ip` realmente resolve o IP público correto (esse era o bug original).
-5. Criar a IAM Role/Instance Profile na conta `geotec` usando `providers/aws/iam-policy-aws-monitor.json` e anexar na instância de teste.
-6. Depois de validar, publicar o repo no GitHub e configurar `SP_REPO_URL` em `bin/bootstrap.sh` + domínio apontando pra ele.
+1. **Validar o que já foi construído em produção por um tempo** (decisão explícita do usuário em 2026-07-29: manter como está antes de adicionar mais coisa) — observar geolocalização, alertas e relatório mensal funcionando de verdade por pelo menos um ciclo antes de expandir.
+2. **Configurar alerta de disco** na EC2 central (e, idealmente, em qualquer EC2 de cliente rodando `remote-agent`) — o incidente do Loki mostrou que isso é um ponto cego real.
+3. Limpar a dívida técnica listada acima (org de teste órfã, dashboards duplicados).
+4. Avaliar geolocalização com tráfego público real (hoje só tráfego interno passou pelo pipeline — país/cidade ainda não foram vistos preenchidos de verdade).
+5. **IA no monitoramento** (discutido em 2026-07-29, não iniciado): antes de um chat interativo livre, começar pelo uso de menor risco — resumo automático de incidente gerado a partir dos dados que o próprio alerta já buscou (não alucina número, só sumariza o que a automação já coletou). Chat livre só depois, com isolamento por cliente desenhado desde o início (nunca confiar em `client_slug` vindo do front-end).
+6. Dashboard central com visão agregada de todos os clientes (item do plano original do `central-admin`, ainda não implementado).
+7. Publicar `bin/bootstrap.sh` (repo Git + domínio apontando pra ele) — pendência antiga, ainda não crítica.
+8. Considerar SLA/SLO formal (meta contratual vs realizado) integrado ao relatório mensal, e status page pública via Uptime Kuma.

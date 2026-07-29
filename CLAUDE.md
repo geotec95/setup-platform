@@ -44,10 +44,15 @@ setup-platform/
 ├── core/           common, os, docker, proxy, menu, logs, validate
 ├── providers/aws/  detect (IMDSv2), cost-report, security-report, backup-s3, route53, cloudwatch
 ├── config/         categories.yaml + config/tools/*.yaml (manifests)
-├── modules/        1 pasta por ferramenta (n8n, observability, aws-monitor, client-dashboard)
-├── templates/      compose, env, traefik, n8n-workflows, dashboards, wrapper HTML
+├── modules/        1 pasta por ferramenta: n8n, observability, aws-monitor, client-dashboard,
+│                   remote-agent (agente leve pra EC2 de cliente), evolution-api (WhatsApp),
+│                   uptime-kuma, gotenberg (HTML->PDF), central-admin (provisionamento de cliente)
+├── templates/      compose, env, traefik, n8n-workflows, dashboards, wrapper HTML, central-admin
+├── logos/          logos reais (Remap + clientes) usados no wrapper e no relatório mensal
 └── scripts/        utilitários de dev/teste (fora do fluxo do instalador em si)
 ```
+
+Ver `HANDOFF.md` para a lista completa de funcionalidades entregues (relatório mensal em PDF, geolocalização de IP, provisionamento automático de cliente, etc.) e o estado real de produção (já roda em EC2 real, não é mais só protótipo).
 
 ## Antes de rodar qualquer coisa
 
@@ -69,6 +74,8 @@ Use esses recursos em vez de reinventar o processo a cada sessão — eles já e
 
 ## Pendências conhecidas (ver HANDOFF.md para detalhes)
 
-- Nada disso foi testado ponta a ponta numa EC2 real ainda.
-- `bin/bootstrap.sh` só funciona depois de publicar este repo no Git e apontar `SP_REPO_URL`.
+- Já roda em produção real (EC2 central + EC2 de cliente via `remote-agent`) — não é mais só protótipo.
+- `bin/bootstrap.sh` ainda não publicado — só funciona depois de publicar este repo no Git e apontar `SP_REPO_URL`.
 - `modules/client-dashboard` depende de `modules/observability` estar rodando.
+- Não há alerta de espaço em disco na EC2 — já causou um incidente real (Loki instável com disco em 94%). Ver "Próximos passos" em `HANDOFF.md`.
+- Dívida técnica de limpeza pendente: org de teste órfã e dashboards duplicados no Grafana (detalhes em `HANDOFF.md`).
