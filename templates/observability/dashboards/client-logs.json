@@ -78,12 +78,14 @@
         {
           "datasource": { "type": "loki", "uid": "Loki" },
           "expr": "topk(15, sum by (geoip_country_name) (count_over_time({client=~\"$client\"} | remote_addr != \"\" [$__range])))",
+          "queryType": "instant",
           "instant": true,
+          "range": false,
           "refId": "A"
         }
       ],
       "transformations": [
-        { "id": "organize", "options": { "renameByName": { "geoip_country_name": "País", "Value": "Requisições" } } }
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "geoip_country_name": "País", "Value": "Requisições" } } }
       ],
       "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
     },
@@ -98,12 +100,14 @@
         {
           "datasource": { "type": "loki", "uid": "Loki" },
           "expr": "topk(15, sum by (remote_addr, geoip_city_name, geoip_country_name) (count_over_time({client=~\"$client\"} | remote_addr != \"\" [$__range])))",
+          "queryType": "instant",
           "instant": true,
+          "range": false,
           "refId": "A"
         }
       ],
       "transformations": [
-        { "id": "organize", "options": { "renameByName": { "remote_addr": "IP", "geoip_city_name": "Cidade", "geoip_country_name": "País", "Value": "Requisições" } } }
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "remote_addr": "IP", "geoip_city_name": "Cidade", "geoip_country_name": "País", "Value": "Requisições" } } }
       ],
       "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
     }
