@@ -11,11 +11,85 @@
   "templating": { "list": [] },
   "panels": [
     {
-      "id": 1,
-      "title": "Requisições rastreadas (busque por serviço, nome ou clique numa linha pra ver o caminho completo)",
+      "id": 2,
+      "title": "Latência p95 por endpoint",
+      "description": "Tempo de resposta (percentil 95) de cada endpoint real da aplicação, calculado direto dos traces (TraceQL metrics) -- health-check e scrape de métricas já são excluídos.",
+      "type": "timeseries",
+      "datasource": { "type": "tempo", "uid": "Tempo" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "tempo", "uid": "Tempo" },
+          "queryType": "traceql",
+          "query": "{resource.client=\"$client\" && span.http.target !~ \"^/health.*\" && span.http.target !~ \"^/metrics.*\"} | quantile_over_time(duration, .95) by (span.http.target)"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "title": "Taxa de erro por endpoint",
+      "description": "Quantidade de spans com erro por segundo, por endpoint real da aplicação (health-check e scrape de métricas excluídos).",
+      "type": "timeseries",
+      "datasource": { "type": "tempo", "uid": "Tempo" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "tempo", "uid": "Tempo" },
+          "queryType": "traceql",
+          "query": "{resource.client=\"$client\" && status = error && span.http.target !~ \"^/health.*\" && span.http.target !~ \"^/metrics.*\"} | rate() by (span.http.target)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.01 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Só erros",
+      "description": "Traces com erro -- clique numa linha pra ver o caminho completo da requisição.",
       "type": "table",
       "datasource": { "type": "tempo", "uid": "Tempo" },
-      "gridPos": { "h": 20, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "tempo", "uid": "Tempo" },
+          "queryType": "traceqlSearch",
+          "query": "{resource.client=\"$client\" && status = error && span.http.target !~ \"^/health.*\" && span.http.target !~ \"^/metrics.*\"}",
+          "limit": 50,
+          "tableType": "traces"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "traceDuration" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "displayName", "value": "Duração" }] },
+          { "matcher": { "id": "byName", "options": "traceService" }, "properties": [{ "id": "displayName", "value": "Serviço" }] },
+          { "matcher": { "id": "byName", "options": "traceName" }, "properties": [{ "id": "displayName", "value": "Operação" }] },
+          { "matcher": { "id": "byName", "options": "startTime" }, "properties": [{ "id": "displayName", "value": "Início" }] },
+          { "matcher": { "id": "byName", "options": "traceID" }, "properties": [{ "id": "displayName", "value": "Trace ID" }] }
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "title": "Todas as requisições rastreadas (busque por serviço, nome ou clique numa linha pra ver o caminho completo)",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "Tempo" },
+      "gridPos": { "h": 20, "w": 24, "x": 0, "y": 18 },
       "targets": [
         {
           "refId": "A",
