@@ -25,6 +25,9 @@
           "query": "{resource.client=\"$client\" && span.http.target !~ \"^/health.*\" && span.http.target !~ \"^/metrics.*\"} | quantile_over_time(duration, .95) by (span.http.target)"
         }
       ],
+      "transformations": [
+        { "id": "renameByRegex", "options": { "regexp": "^\\{p=[0-9.]+, span\\.http\\.target=\"?(.*?)\"?\\}$", "renamePattern": "$1" } }
+      ],
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
     },
     {
@@ -41,6 +44,9 @@
           "queryType": "traceql",
           "query": "{resource.client=\"$client\" && status = error && span.http.target !~ \"^/health.*\" && span.http.target !~ \"^/metrics.*\"} | rate() by (span.http.target)"
         }
+      ],
+      "transformations": [
+        { "id": "renameByRegex", "options": { "regexp": "^\\{span\\.http\\.target=\"?(.*?)\"?\\}$", "renamePattern": "$1" } }
       ],
       "fieldConfig": {
         "defaults": {
